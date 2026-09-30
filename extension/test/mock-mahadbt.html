@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- Local MOCK page (not MahaDBT) used only to exercise content.js in a normal browser tab. -->
+<html lang="en"><head><meta charset="utf-8"><title>Mock portal</title>
+<script>
+  window.__sent = [];
+  window.__stored = null;
+  window.chrome = { storage: { local: { set: (o) => { window.__stored = o; } } }, runtime: { sendMessage: (m) => window.__sent.push(m), onMessage: { addListener: (fn) => { window.__handler = fn; } } } };
+</script></head>
+<body>
+  <nav><a href="#home">Home</a> <a href="#schemes">All Schemes</a> <a href="#out">Logout</a> <a href="https://example.com/x">External</a> <button>Submit Application</button></nav>
+  <h1>Application</h1>
+  <form onsubmit="return false">
+    <label for="n">Full name *</label><input id="n" name="fullName" required>
+    <label for="m">Mobile number</label><input id="m" name="mobile" value="12345">
+    <label for="pw">Password</label><input id="pw" type="password" value="secret123">
+    <label for="ot">Enter OTP *</label><input id="ot" name="otp" required>
+    <label for="inc">Income certificate *</label><input id="inc" type="file" required>
+    <label for="s">Category *</label><select id="s" required><option value="">Select</option><option>ST</option></select>
+  </form>
+  <script src="../content.js"></script>
+</body></html>

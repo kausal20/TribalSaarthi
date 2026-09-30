@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TribalSaarthi guide</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="head">
+      <div class="badge" aria-hidden="true">✦</div>
+      <div>
+        <h1>TribalSaarthi guide</h1>
+        <p id="status" class="status" aria-live="polite">Checking the current page…</p>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Guide sections">
+      <button role="tab" id="t-chat" aria-selected="true" aria-controls="p-chat">Guide</button>
+      <button role="tab" id="t-form" aria-selected="false" aria-controls="p-form">Check form</button>
+      <button role="tab" id="t-docs" aria-selected="false" aria-controls="p-docs">Documents</button>
+    </nav>
+
+    <main>
+      <section id="p-chat" role="tabpanel" aria-labelledby="t-chat">
+        <div id="log" class="log" role="log" aria-live="polite" aria-label="Conversation"></div>
+        <div id="quick" class="quick" role="group" aria-label="Suggested questions"></div>
+        <form id="composer" class="composer">
+          <label for="ask" class="sr">Ask the guide</label>
+          <input id="ask" autocomplete="off" placeholder="Ask where to go or what a page needs…" />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <section id="p-form" role="tabpanel" aria-labelledby="t-form" hidden>
+        <div class="tool-intro"><span class="tool-kicker">Before you submit</span><h2>Review your form</h2><p>Find missing details and common formatting mistakes on the page you have open.</p><span class="privacy-note">Checked on this device · Sensitive fields skipped</span></div>
+        <button id="scan" class="primary tool-action">Check this page <span aria-hidden="true">→</span></button>
+        <div id="scan-summary" class="summary" aria-live="polite"></div>
+        <ul id="issues" class="issues"><li class="empty-state"><strong>Ready when you are</strong><p>Open an application form on the portal, enter your details, then check this page.</p></li></ul>
+        <p class="tool-limit">Checks cover visible fields only. They do not confirm eligibility, correctness or approval.</p>
+        <details class="diag">
+          <summary>Help improve the guide: copy page structure</summary>
+          <p class="note">Copies the page’s field labels, types and menu names — <strong>never</strong> anything you typed, and no address details. Review it, then paste it to the developer.</p>
+          <button id="diag" class="ghost">Prepare page structure</button>
+          <textarea id="diag-out" readonly rows="8" aria-label="Page structure to copy"></textarea>
+          <button id="diag-copy" class="ghost">Copy</button>
+        </details>
+      </section>
+
+      <section id="p-docs" role="tabpanel" aria-labelledby="t-docs" hidden>
+        <div class="tool-intro"><span class="tool-kicker">Prepare your files</span><h2>Document checks</h2><p>Review file format, size and image dimensions before choosing a file on the portal.</p><span class="privacy-note">Files stay on this device · Cleared when this panel closes</span></div>
+        <label class="document-picker"><span class="picker-icon" aria-hidden="true">↑</span><strong>Choose a document</strong><span>PDF, JPG or PNG · Up to 20 MB per local check</span><input id="pick" type="file" accept=".pdf,.png,.jpg,.jpeg" class="sr" /></label>
+        <p id="doc-status" class="note" role="status" aria-live="polite"></p>
+        <ul id="docs" class="docs"></ul>
+        <div class="tool-section-head"><h2>Fields on the portal</h2><button id="rescan" class="ghost">Refresh</button></div>
+        <ul id="slots" class="slots"></ul>
+        <p class="tool-limit">These are basic file checks, not a scan of the document’s contents or authenticity. Use the portal’s own document and size requirements.</p>
+      </section>
+    </main>
+
+    <footer class="foot">Prototype. Explains and checks; you enter details, upload and submit yourself. Never share passwords or OTPs.<br /><span id="ai-status" class="ai-status" role="status">Checking AI guide…</span></footer>
+
+    <dialog id="consent" aria-labelledby="c-title">
+      <form method="dialog">
+        <h2 id="c-title">Check this document?</h2>
+        <p id="c-file" class="mono"></p>
+        <p>Choose how to check it. You will be asked again for every document.</p>
+        <button value="local" class="primary" id="c-local">Check on this device (recommended)</button>
+        <button value="server" id="c-server" disabled>Send to server AI — not connected yet</button>
+        <button value="cancel" class="ghost">Cancel</button>
+      </form>
+    </dialog>
+
+    <dialog id="attach" aria-labelledby="a-title">
+      <form method="dialog">
+        <h2 id="a-title">Put this file in the upload field?</h2>
+        <p id="a-text"></p>
+        <p class="note">This selects the file in the portal’s field. Some portals upload immediately when a file is selected. Continue only if you are ready to share this file with the current official portal.</p>
+        <button value="yes" class="primary" id="a-yes">Yes, select the file</button>
+        <button value="no" class="ghost">Cancel</button>
+      </form>
+    </dialog>
+
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Content script regression checks</title></head><body>
+<label for="secret">Password</label><input id="secret" type="password">
+<label for="choice">Study level</label><select id="choice" required><option value="college">College</option></select>
+<label for="upload">Admission proof</label><input id="upload" type="file" required accept=".pdf">
+<label for="postal">PIN code</label><input id="postal" value="4110">
+<label for="locked">Institution</label><input id="locked" required disabled>
+<output id="result">Running</output>
+<script>
+window.chrome={runtime:{sendMessage:()=>{},onMessage:{addListener:fn=>window.receive=fn}}};
+Object.defineProperty(document.getElementById('secret'),'value',{get(){throw new Error('Sensitive value was read');}});
+</script><script src="../content.js"></script><script>
+window.receive({type:'page-info'}, {}, response=>{
+try {
+ if(!response.ok) throw Error(response.reason);
+ const fields=response.fields;
+ if(fields.find(f=>f.label==='Password').value !== undefined) throw Error('Secret returned');
+ if(!fields.find(f=>f.label==='Study level').filled) throw Error('Valid first option not recognised');
+ if(fields.find(f=>f.label==='PIN code').sensitive) throw Error('Postal code treated as secret');
+ if(!fields.find(f=>f.label==='Institution').disabled) throw Error('Disabled flag missing');
+ if(fields.find(f=>f.label==='Admission proof').accept!=='.pdf') throw Error('Accept constraint missing');
+ document.getElementById('result').textContent='CONTENT CHECKS PASSED';
+} catch(e) { document.getElementById('result').textContent='FAILED: '+e.message; }
+});
+</script></body></html>

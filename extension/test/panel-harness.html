@@ -1,0 +1,29 @@
+<!doctype html>
+<!-- Dev harness: loads sidepanel.html in a normal tab with a stubbed chrome API and fake page data. -->
+<html><head><meta charset="utf-8"><title>panel harness</title>
+<script>
+  window.__calls = [];
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = (url, options) => String(url).includes('/api/health') ? Promise.resolve(new Response(JSON.stringify({keyConfigured:false}))) : originalFetch(url, options);
+  const params = new URLSearchParams(location.search);
+  const fields = [
+    { id: 'ts1', label: 'Full name', name: 'fullName', type: 'text', required: true, filled: false, sensitive: false, value: '' },
+    { id: 'ts2', label: 'Mobile number', name: 'mobile', type: 'text', required: false, filled: true, sensitive: false, value: '12345' },
+    { id: 'ts3', label: 'Enter OTP', name: 'otp', type: 'text', required: true, filled: false, sensitive: true },
+    { id: 'ts4', label: 'Income certificate', name: 'inc', type: 'file', required: true, filled: false, sensitive: false, fileName: '' },
+  ];
+  const info = { title: 'Mock MahaDBT', path: '/Home/LandingPage', headings: ['Home'], links: ['Home', 'New Registration', 'Post Matric Scholarship', 'All Schemes', 'Logout'] };
+  const H = new URLSearchParams(location.search).get('handoff');
+  const store = H ? { tsHandoff: { id: H, ts: Date.now() } } : {};
+  window.__store = store;
+  window.chrome = {
+    runtime: { sendMessage: async () => ({ ok: true }) },
+    storage: { local: { get: async (k) => ({ [k]: store[k] }), remove: async (k) => { delete store[k]; } } },
+    tabs: {
+      query: async () => [{ id: 1, url: 'https://mahadbt.maharashtra.gov.in/Home/LandingPage' }],
+      sendMessage: async (id, m) => { window.__calls.push(m); return m.type === 'page-info' ? (params.get('scenario') === 'error' ? { ok: false } : { ok: true, info, fields: params.get('scenario') === 'empty' ? [] : fields }) : m.type === 'scan' ? { ok: true, fields } : { ok: true, matched: m.label }; },
+      onActivated: { addListener() {} }, onUpdated: { addListener() {} },
+    },
+  };
+  fetch('../sidepanel.html').then((r) => r.text()).then((h) => { document.open(); document.write(h.replace('<head>', '<head><base href="../">')); document.close(); setTimeout(() => { if(params.get('tab') === 'form') { document.getElementById('t-form').click(); document.getElementById('scan').click(); } if(params.get('tab') === 'docs') document.getElementById('t-docs').click(); }, 700); });
+</script></head><body></body></html>
