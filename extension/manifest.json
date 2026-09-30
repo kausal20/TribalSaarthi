@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "TribalSaarthi Guide (prototype)",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Prototype guide for MahaDBT and the National Scholarship Portal: explains pages and checks forms and documents on your device.",
   "permissions": ["sidePanel", "storage", "scripting"],
-  "host_permissions": ["https://mahadbt.maharashtra.gov.in/*", "https://scholarships.gov.in/*", "http://localhost:4501/*"],
+  "host_permissions": ["https://mahadbt.maharashtra.gov.in/*", "https://scholarships.gov.in/*", "http://localhost:4501/*", "https://tribalsaarthi.vercel.app/*"],
   "background": { "service_worker": "background.js" },
   "side_panel": { "default_path": "sidepanel.html" },
   "action": { "default_title": "Open TribalSaarthi guide" },
@@ -15,7 +15,7 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["http://localhost:4500/*", "http://localhost:5173/*"],
+      "matches": ["http://localhost:4500/*", "http://localhost:5173/*", "https://tribalsaarthi.vercel.app/*"],
       "js": ["bridge.js"],
       "run_at": "document_start"
     }

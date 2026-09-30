@@ -115,7 +115,7 @@ async function ask(text) {
   $('log').append(pending);
   $('log').scrollTop = $('log').scrollHeight;
   try {
-    const response = await fetch('http://localhost:4501/api/assistant', {
+    const response = await fetch('https://tribalsaarthi.vercel.app/api/assistant', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -326,13 +326,13 @@ function setAI(state, text) {
 }
 async function checkAI() {
   try {
-    const r = await fetch('http://localhost:4501/api/health', { signal: AbortSignal.timeout(4000) });
+    const r = await fetch('https://tribalsaarthi.vercel.app/api/health', { signal: AbortSignal.timeout(4000) });
     const h = await r.json();
     if (!h.keyConfigured) setAI('off', 'AI guide off: no API key on the server — using local answers');
     else if (!h.canAnswer) setAI('off', 'AI guide off: Mesh balance is empty — using local answers');
     else setAI('on', `AI guide connected (${h.model})`);
   } catch {
-    setAI('off', 'AI guide offline: start the server (npm run server) — using local answers');
+    setAI('off', 'AI guide offline: check your connection and try again — using local answers');
   }
 }
 
