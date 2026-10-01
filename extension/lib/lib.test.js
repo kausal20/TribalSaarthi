@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { respond, FALLBACK } from './rules.js';
+import { respond, FALLBACK, documentAssistance } from './rules.js';
 import { acceptsFile, checkDocument, checkFields, detectType, isSensitive, summarise } from './checks.js';
 import { PORTAL, NSP_PORTAL, portalForHost } from './portal.js';
 import { handoffMessage, isFresh, parseHandoff } from './handoff.js';
@@ -9,6 +9,16 @@ const pdf = (extra = '') => enc(`%PDF-1.4\n1 0 obj << /Type /Page >> endobj\n${e
 const limits = PORTAL.docLimits;
 
 describe('guide rules', () => {
+  it('opens consent-based document tools for attachment requests in English and Hindi', () => {
+    for (const q of ['if i give you domucemnts of myn will you uplode it to the website', 'Can you upload my document?', 'मेरे दस्तावेज़ अपलोड कर सकते हैं?']) {
+      expect(documentAssistance(q)?.actions).toEqual([{ type: 'scan-uploads' }]);
+    }
+    expect(documentAssistance('Please attach my file').text).toContain('confirm');
+    expect(documentAssistance('Please attach my file').text).toContain('Some portals upload immediately');
+    expect(documentAssistance('what documents do I need?')).toBeNull();
+    expect(documentAssistance('upload my Aadhaar')).toBeNull();
+    expect(documentAssistance('upload and submit for me')).toBeNull();
+  });
   const links = ['Home', 'New Registration', 'Post Matric Scholarship', 'All Schemes'];
   it('answers registration from portal facts and offers navigation only if the link exists', () => {
     const r = respond('Where do I register?', { links });
@@ -145,5 +155,137 @@ describe('portal upload constraints', () => {
   it('only treats a verified size limit as a blocking portal rule', () => {
     expect(checkDocument({ name: 'a.pdf', size: 2000000, bytes: pdf() }, { ...limits, verified: true }).some(x => x.level === 'error')).toBe(true);
     expect(checkDocument({ name: 'a.pdf', size: 2000000, bytes: pdf() }, limits).some(x => x.level === 'error')).toBe(false);
+  });
+});
+
+import { readFileSync } from 'node:fs';
+import { FIELD_PATTERN, asksToHandleSecret, isSensitiveField, mentionsPrivate, sharesSecret, splitWords } from './sensitive.js';
+import { groupRadios } from './checks.js';
+
+describe('private fields and messages', () => {
+  it('only treats real secret words as private, not "passport" or "passing"', () => {
+    for (const label of ['Password', 'Enter OTP', 'Aadhaar number', 'Bank account number', 'IFSC code', 'CAPTCHA', 'Confirm pin']) {
+      expect(isSensitiveField(label), label).toBe(true);
+    }
+    for (const label of ['Passport size photograph', 'Passing year', 'Passed in (year)', 'PIN code', 'Pincode', 'Income certificate', 'Photo', 'Hotplate']) {
+      expect(isSensitiveField(label), label).toBe(false);
+    }
+  });
+  it('reads field names written in camelCase or with underscores', () => {
+    expect(splitWords('txtOTP')).toBe('txt OTP');
+    expect(isSensitiveField('', 'txtOTP')).toBe(true);
+    expect(isSensitiveField('', 'ctl00_Main_txtPassingYear')).toBe(false);
+    expect(isSensitiveField('', 'ddl_pin_code')).toBe(false);
+  });
+  it('content.js carries exactly the same field pattern', () => {
+    const source = readFileSync(new URL('../content.js', import.meta.url), 'utf8');
+    const literal = /const SENSITIVE = \/(.+)\/i;/.exec(source)?.[1];
+    expect(literal).toBe(FIELD_PATTERN);
+  });
+  it('spots a secret value in a message, but not a question about one', () => {
+    for (const m of ['my otp is 482913', 'otp 482913', '482913 is my otp', 'password is Abc@123', 'my password is sunshine', 'pin: 4455', 'aadhaar 1234 5678 9012', '1234567890123456']) {
+      expect(sharesSecret(m), m).toBe(true);
+    }
+    for (const m of ['I forgot my password', 'what is OTP', 'the otp is not coming', 'password is required', 'what goes in the PIN code field', 'where do I register', 'my mobile is 9876543210']) {
+      expect(sharesSecret(m), m).toBe(false);
+    }
+    expect(mentionsPrivate('upload my aadhaar')).toBe(true);
+    expect(mentionsPrivate('PIN code')).toBe(false);
+  });
+  it('asks to refuse typing a secret for the student', () => {
+    expect(asksToHandleSecret('enter my password for me')).toBe(true);
+    expect(asksToHandleSecret('please type the otp')).toBe(true);
+    expect(asksToHandleSecret('how do I reset it')).toBe(false);
+  });
+  it('the local guide answers questions about secrets and refuses the values', () => {
+    expect(respond('I forgot my password', {}).kind).toBe('answer');
+    expect(respond('my otp is 482913', {}).kind).toBe('safety');
+    expect(respond('what should I write in the PIN code field', {}).kind).not.toBe('safety');
+  });
+});
+
+describe('MahaDBT 1.0 and 2.0, and Marathi labels', () => {
+  it('recognises both MahaDBT hosts as the same portal', () => {
+    expect(portalForHost('mahadbt.maharashtra.gov.in')).toBe(PORTAL);
+    expect(portalForHost('mahadbt2.maharashtra.gov.in')).toBe(PORTAL);
+    expect(portalForHost('mahadbt3.maharashtra.gov.in')).toBeNull();
+  });
+  it('is declared in the manifest for content scripts and host access', () => {
+    const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url), 'utf8'));
+    expect(manifest.host_permissions).toContain('https://mahadbt2.maharashtra.gov.in/*');
+    expect(manifest.content_scripts[0].matches).toContain('https://mahadbt2.maharashtra.gov.in/*');
+    const worker = readFileSync(new URL('../background.js', import.meta.url), 'utf8');
+    expect(worker).toContain('https://mahadbt2.maharashtra.gov.in/*');
+  });
+  it('offers the Marathi registration link when that is the one on the page', () => {
+    const r = respond('Where do I register?', { links: ['मुख्यपृष्ठ', 'लॉगिन', 'नोंदणी करा'] });
+    expect(r.actions?.[0]).toEqual({ type: 'goto', label: 'नोंदणी करा' });
+  });
+  it('explaining login does not move the page; asking to be taken there does', () => {
+    const links = ['Home', 'Login'];
+    expect(respond('how do I log in', { links }).actions).toBeUndefined();
+    expect(respond('take me to login', { links }).actions?.[0]).toEqual({ type: 'goto', label: 'Login' });
+  });
+});
+
+describe('radio groups and required selects', () => {
+  const radio = (id, group, label, extra = {}) => ({ id, type: 'radio', name: 'gender', group, label, required: false, filled: false, sensitive: false, ...extra });
+  it('counts one radio group as one question', () => {
+    const list = [radio('a', 'Gender', 'Male', { required: true }), radio('b', 'Gender', 'Female'), radio('c', 'Gender', 'Other')];
+    expect(groupRadios(list)).toHaveLength(1);
+    expect(groupRadios(list)[0]).toMatchObject({ label: 'Gender', required: true, filled: false });
+    const issues = checkFields(list);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].text).toBe('Choose an option for “Gender”.');
+    expect(summarise(list)).toMatchObject({ total: 1, requiredEmpty: 1 });
+    expect(checkFields(list.map((r, i) => ({ ...r, filled: i === 1 })))).toHaveLength(0);
+  });
+  it('words empty selects, checkboxes and uploads for what the student has to do', () => {
+    const f = (o) => ({ id: 'x', label: 'Thing', name: '', type: 'text', required: true, filled: false, sensitive: false, ...o });
+    expect(checkFields([f({ type: 'select' })])[0].text).toContain('Choose an option');
+    expect(checkFields([f({ type: 'checkbox' })])[0].text).toContain('Tick');
+    expect(checkFields([f({ type: 'file' })])[0].text).toContain('needs a file');
+  });
+  it('does not call a school name or a +91 mobile number a mistake', () => {
+    const f = (o) => ({ id: 'x', name: '', type: 'text', required: false, filled: true, sensitive: false, ...o });
+    expect(checkFields([f({ label: 'School name', value: 'ZP School 5' })])).toHaveLength(0);
+    expect(checkFields([f({ label: 'Mobile number', value: '+91 98765 43210' })])).toHaveLength(0);
+    expect(checkFields([f({ label: 'Contact person name', value: 'Asha' })])).toHaveLength(0);
+    expect(checkFields([f({ label: 'Marks', value: '85%' })])).toHaveLength(0);
+  });
+});
+
+describe('handoff from the website', () => {
+  it('greets real scheme ids honestly, including schemes that are not on MahaDBT', () => {
+    expect(handoffMessage('mh-st-post-matric')).toMatch(/Post Matric Scholarship Scheme \(Government Of India\)/);
+    expect(handoffMessage('mh-st-freeship')).toMatch(/Freeship/);
+    expect(handoffMessage('st-nos')).toMatch(/not applied for on MahaDBT/);
+    expect(handoffMessage('st-post-matric', NSP_PORTAL)).toMatch(/Post Matric Scholarship for ST Students/);
+    expect(handoffMessage('st-post-matric', NSP_PORTAL)).not.toMatch(/practice only/);
+  });
+  it('every message keeps eligibility with the provider', () => {
+    for (const id of ['mh-st-post-matric', 'mh-st-freeship', 'mh-st-iti-fee']) expect(handoffMessage(id)).toMatch(/only the provider decides/);
+  });
+});
+
+import { fieldFit, rankSlots } from './checks.js';
+
+describe('which upload field a file belongs to', () => {
+  const slots = [{ label: 'Passport size photograph' }, { label: 'Income certificate' }, { label: 'Caste certificate' }];
+  it('puts the field that matches the file name first', () => {
+    expect(rankSlots('income_certificate.pdf', slots)[0].label).toBe('Income certificate');
+    expect(rankSlots('CasteCertificate.pdf', slots)[0].label).toBe('Caste certificate');
+    expect(rankSlots('my-photo.jpg', slots)[0].label).toBe('Passport size photograph');
+    expect(rankSlots('Tribe validity.pdf', slots)[0].label).toBe('Caste certificate');
+  });
+  it('keeps the page order when the name gives no clue', () => {
+    const ranked = rankSlots('IMG_2031.jpg', slots);
+    expect(ranked.map((s) => s.label)).toEqual(slots.map((s) => s.label));
+    expect(ranked.every((s) => s.fit === 0)).toBe(true);
+  });
+  it('scores shared words and same-meaning words once each', () => {
+    expect(fieldFit('income.pdf', 'Income certificate')).toBe(1);
+    expect(fieldFit('salary slip.pdf', 'Income certificate')).toBe(1);
+    expect(fieldFit('marks.pdf', 'Income certificate')).toBe(0);
   });
 });

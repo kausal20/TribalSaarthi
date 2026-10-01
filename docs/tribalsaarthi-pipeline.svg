@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" font-family="'Segoe UI', 'Inter', Arial, sans-serif">
+<defs>
+  <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#111827" flood-opacity="0.08"/></filter>
+  <filter id="blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="14"/></filter>
+  <marker id="ah" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1 1 L9 5 L1 9 Z" fill="#111827"/></marker>
+</defs>
+<rect width="1920" height="1080" fill="#FAFAF7"/>
+<rect x="0" y="0" width="1920" height="10" fill="#0F8B78"/>
+<text x="80" y="100" font-size="46" font-weight="800" fill="#111827">TribalSaarthi: from finding a scholarship to a correct application</text>
+<text x="80" y="150" font-size="25" font-weight="400" fill="#667085">An AI guide for ST students that works on the website and beside the official government portal</text>
+<rect x="1560" y="62" width="280" height="44" rx="22" fill="#DDF4ED"/><text x="1700" y="91" font-size="19" font-weight="700" fill="#0B6E5F" text-anchor="middle">SIH 2026  ·  Prototype</text>
+<rect x="80" y="176" width="130" height="5" rx="2.5" fill="#F4B740"/>
+<g>
+
+<rect x="80" y="240" width="328" height="420" rx="24" fill="#fff" stroke="#E5E7EB" stroke-width="2" filter="url(#shadow)"/>
+<clipPath id="top0"><rect x="80" y="240" width="328" height="420" rx="24"/></clipPath>
+<rect x="80" y="240" width="328" height="8" fill="#0F8B78" clip-path="url(#top0)"/>
+<text x="108" y="302" font-size="17" font-weight="700" fill="#0F8B78" letter-spacing="1.5">01  ·  DISCOVER</text>
+<text x="108" y="348" font-size="29" font-weight="800" fill="#111827">Find the scheme</text>
+<rect x="108" y="370" width="221.4" height="34" rx="17" fill="#DDF4ED"/>
+<text x="120" y="393" font-size="16" font-weight="600" fill="#0B6E5F">TribalSaarthi website</text>
+<circle cx="114" cy="448" r="5" fill="#0F8B78"/><text x="132" y="454" font-size="20" font-weight="400" fill="#344054">Search and filter by level</text><text x="132" y="484" font-size="20" font-weight="400" fill="#344054">and study location</text><circle cx="114" cy="524" r="5" fill="#0F8B78"/><text x="132" y="530" font-size="20" font-weight="400" fill="#344054">8 official ST schemes with</text><text x="132" y="560" font-size="20" font-weight="400" fill="#344054">source and check date</text><circle cx="114" cy="600" r="5" fill="#0F8B78"/><text x="132" y="606" font-size="20" font-weight="400" fill="#344054">AI suggests best matches</text><text x="132" y="636" font-size="20" font-weight="400" fill="#344054">from class, income, state</text>
+
+</g><g>
+<rect x="430" y="232" width="344" height="436" rx="30" fill="#F4B740" opacity="0.28" filter="url(#blur)"/>
+<rect x="438" y="240" width="328" height="420" rx="24" fill="#fff" stroke="#F4B740" stroke-width="5" filter="url(#shadow)"/>
+<clipPath id="top1"><rect x="438" y="240" width="328" height="420" rx="24"/></clipPath>
+<rect x="438" y="240" width="328" height="8" fill="#F4B740" clip-path="url(#top1)"/>
+<text x="466" y="302" font-size="17" font-weight="700" fill="#0F8B78" letter-spacing="1.5">02  ·  UNDERSTAND</text>
+<text x="466" y="348" font-size="29" font-weight="800" fill="#111827">Ask the AI Guide</text>
+<rect x="466" y="370" width="259" height="34" rx="17" fill="#DDF4ED"/>
+<text x="478" y="393" font-size="16" font-weight="600" fill="#0B6E5F">Gemini, grounded in facts</text>
+<circle cx="472" cy="448" r="5" fill="#0F8B78"/><text x="490" y="454" font-size="20" font-weight="400" fill="#344054">Answers only from official</text><text x="490" y="484" font-size="20" font-weight="400" fill="#344054">scheme facts, never guesses</text><circle cx="472" cy="524" r="5" fill="#0F8B78"/><text x="490" y="530" font-size="20" font-weight="400" fill="#344054">Asks for missing details</text><text x="490" y="560" font-size="20" font-weight="400" fill="#344054">and shows the source</text><circle cx="472" cy="600" r="5" fill="#0F8B78"/><text x="490" y="606" font-size="20" font-weight="400" fill="#344054">Never decides eligibility</text>
+<rect x="596" y="223" width="146" height="34" rx="17" fill="#F4B740"/><text x="669" y="246" font-size="15" font-weight="800" fill="#111827" text-anchor="middle" letter-spacing="0.6">★ AI CORE</text>
+</g><g>
+
+<rect x="796" y="240" width="328" height="420" rx="24" fill="#fff" stroke="#E5E7EB" stroke-width="2" filter="url(#shadow)"/>
+<clipPath id="top2"><rect x="796" y="240" width="328" height="420" rx="24"/></clipPath>
+<rect x="796" y="240" width="328" height="8" fill="#0F8B78" clip-path="url(#top2)"/>
+<text x="824" y="302" font-size="17" font-weight="700" fill="#0F8B78" letter-spacing="1.5">03  ·  HAND OFF</text>
+<text x="824" y="348" font-size="29" font-weight="800" fill="#111827">Open the portal</text>
+<rect x="824" y="370" width="165" height="34" rx="17" fill="#DDF4ED"/>
+<text x="836" y="393" font-size="16" font-weight="600" fill="#0B6E5F">MahaDBT  ·  NSP</text>
+<circle cx="830" cy="448" r="5" fill="#0F8B78"/><text x="848" y="454" font-size="20" font-weight="400" fill="#344054">Opens the real government</text><text x="848" y="484" font-size="20" font-weight="400" fill="#344054">website in a new tab</text><circle cx="830" cy="524" r="5" fill="#0F8B78"/><text x="848" y="530" font-size="20" font-weight="400" fill="#344054">Link carries only a scheme</text><text x="848" y="560" font-size="20" font-weight="400" fill="#344054">ID, nothing personal</text><circle cx="830" cy="600" r="5" fill="#0F8B78"/><text x="848" y="606" font-size="20" font-weight="400" fill="#344054">Student stays in control</text>
+
+</g><g>
+<rect x="1146" y="232" width="344" height="436" rx="30" fill="#F4B740" opacity="0.28" filter="url(#blur)"/>
+<rect x="1154" y="240" width="328" height="420" rx="24" fill="#fff" stroke="#F4B740" stroke-width="5" filter="url(#shadow)"/>
+<clipPath id="top3"><rect x="1154" y="240" width="328" height="420" rx="24"/></clipPath>
+<rect x="1154" y="240" width="328" height="8" fill="#F4B740" clip-path="url(#top3)"/>
+<text x="1182" y="302" font-size="17" font-weight="700" fill="#0F8B78" letter-spacing="1.5">04  ·  GUIDE ON PORTAL</text>
+<text x="1182" y="348" font-size="29" font-weight="800" fill="#111827">Live form help</text>
+<rect x="1182" y="370" width="183.8" height="34" rx="17" fill="#DDF4ED"/>
+<text x="1194" y="393" font-size="16" font-weight="600" fill="#0B6E5F">Chrome side panel</text>
+<circle cx="1188" cy="448" r="5" fill="#0F8B78"/><text x="1206" y="454" font-size="20" font-weight="400" fill="#344054">Takes the student to the</text><text x="1206" y="484" font-size="20" font-weight="400" fill="#344054">right page of the portal</text><circle cx="1188" cy="524" r="5" fill="#0F8B78"/><text x="1206" y="530" font-size="20" font-weight="400" fill="#344054">Explains every form field</text><circle cx="1188" cy="570" r="5" fill="#0F8B78"/><text x="1206" y="576" font-size="20" font-weight="400" fill="#344054">Checks form and documents</text><text x="1206" y="606" font-size="20" font-weight="400" fill="#344054">on the device, with consent</text>
+<rect x="1312" y="223" width="146" height="34" rx="17" fill="#F4B740"/><text x="1385" y="246" font-size="15" font-weight="800" fill="#111827" text-anchor="middle" letter-spacing="0.6">★ KEY FEATURE</text>
+</g><g>
+
+<rect x="1512" y="240" width="328" height="420" rx="24" fill="#fff" stroke="#E5E7EB" stroke-width="2" filter="url(#shadow)"/>
+<clipPath id="top4"><rect x="1512" y="240" width="328" height="420" rx="24"/></clipPath>
+<rect x="1512" y="240" width="328" height="8" fill="#0F8B78" clip-path="url(#top4)"/>
+<text x="1540" y="302" font-size="17" font-weight="700" fill="#0F8B78" letter-spacing="1.5">05  ·  SUBMIT</text>
+<text x="1540" y="348" font-size="29" font-weight="800" fill="#111827">Student applies</text>
+<rect x="1540" y="370" width="165" height="34" rx="17" fill="#DDF4ED"/>
+<text x="1552" y="393" font-size="16" font-weight="600" fill="#0B6E5F">Official portal</text>
+<circle cx="1546" cy="448" r="5" fill="#0F8B78"/><text x="1564" y="454" font-size="20" font-weight="400" fill="#344054">Student uploads and submits</text><text x="1564" y="484" font-size="20" font-weight="400" fill="#344054">on the official site</text><circle cx="1546" cy="524" r="5" fill="#0F8B78"/><text x="1564" y="530" font-size="20" font-weight="400" fill="#344054">Fewer mistakes reach the</text><text x="1564" y="560" font-size="20" font-weight="400" fill="#344054">officer</text><circle cx="1546" cy="600" r="5" fill="#0F8B78"/><text x="1564" y="606" font-size="20" font-weight="400" fill="#344054">Goal: fewer correction</text><text x="1564" y="636" font-size="20" font-weight="400" fill="#344054">rounds</text>
+
+</g>
+<circle cx="423" cy="450" r="17" fill="#111827"/><path d="M417 442 L429 450 L417 458" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="781" cy="450" r="17" fill="#111827"/><path d="M775 442 L787 450 L775 458" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="1139" cy="450" r="17" fill="#111827"/><path d="M1133 442 L1145 450 L1133 458" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="1497" cy="450" r="17" fill="#111827"/><path d="M1491 442 L1503 450 L1491 458" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="80" y="692" width="1760" height="122" rx="24" fill="#111827"/><text x="112" y="732" font-size="16" font-weight="700" fill="#F4B740" letter-spacing="2">BUILT-IN SAFEGUARDS</text><circle cx="125" cy="776" r="13" fill="#0F8B78"/><path d="M118.5 776 l5 5 l9 -10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="150" y="770" font-size="19" font-weight="600" fill="#fff">Never asks for</text><text x="150" y="796" font-size="19" font-weight="600" fill="#fff">OTP or password</text><circle cx="561" cy="776" r="13" fill="#0F8B78"/><path d="M554.5 776 l5 5 l9 -10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="586" y="770" font-size="19" font-weight="600" fill="#fff">Student confirms every</text><text x="586" y="796" font-size="19" font-weight="600" fill="#fff">upload and submit</text><circle cx="997" cy="776" r="13" fill="#0F8B78"/><path d="M990.5 776 l5 5 l9 -10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="1022" y="770" font-size="19" font-weight="600" fill="#fff">Documents checked on the</text><text x="1022" y="796" font-size="19" font-weight="600" fill="#fff">device, consent per file</text><circle cx="1433" cy="776" r="13" fill="#0F8B78"/><path d="M1426.5 776 l5 5 l9 -10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="1458" y="770" font-size="19" font-weight="600" fill="#fff">Independent guide: the portal</text><text x="1458" y="796" font-size="19" font-weight="600" fill="#fff">stays the place to apply</text>
+<rect x="80" y="842" width="1130" height="176" rx="22" fill="#fff" stroke="#E5E7EB" stroke-width="2"/>
+<text x="108" y="878" font-size="16" font-weight="700" fill="#0F8B78" letter-spacing="2">UNDER THE HOOD</text>
+<rect x="108" y="894" width="250" height="52" rx="14" fill="#fff" stroke="#0F8B78" stroke-width="2.5"/><text x="233" y="918" font-size="18" font-weight="700" fill="#111827" text-anchor="middle">Website</text><text x="233" y="937" font-size="14" font-weight="400" fill="#667085" text-anchor="middle">React + TypeScript</text>
+<rect x="108" y="954" width="250" height="52" rx="14" fill="#fff" stroke="#0F8B78" stroke-width="2.5"/><text x="233" y="978" font-size="18" font-weight="700" fill="#111827" text-anchor="middle">Chrome extension</text><text x="233" y="997" font-size="14" font-weight="400" fill="#667085" text-anchor="middle">Manifest V3 side panel</text>
+<path d="M360 920 L452 938" stroke="#111827" stroke-width="3" fill="none" marker-end="url(#ah)"/>
+<path d="M360 980 L452 962" stroke="#111827" stroke-width="3" fill="none" marker-end="url(#ah)"/>
+<rect x="456" y="924" width="330" height="52" rx="14" fill="#DDF4ED" stroke="#0F8B78" stroke-width="2.5"/><text x="621" y="948" font-size="18" font-weight="700" fill="#111827" text-anchor="middle">AI guide server</text><text x="621" y="967" font-size="14" font-weight="400" fill="#667085" text-anchor="middle">Node · prompts + safety checks</text>
+<path d="M788 950 L866 950" stroke="#111827" stroke-width="3" fill="none" marker-end="url(#ah)"/>
+<rect x="870" y="924" width="310" height="52" rx="14" fill="#fff" stroke="#F4B740" stroke-width="2.5"/><text x="1025" y="948" font-size="18" font-weight="700" fill="#111827" text-anchor="middle">Gemini 3.1 Flash Lite</text><text x="1025" y="967" font-size="14" font-weight="400" fill="#667085" text-anchor="middle">via Mesh API</text>
+<rect x="1240" y="842" width="600" height="176" rx="22" fill="none" stroke="#667085" stroke-width="2.5" stroke-dasharray="10 8"/>
+<text x="1268" y="878" font-size="16" font-weight="700" fill="#667085" letter-spacing="2">PLANNED  ·  NOT BUILT YET</text>
+<circle cx="1276" cy="923" r="4.5" fill="#667085"/><text x="1292" y="929" font-size="19" font-weight="400" fill="#475467">AI document scan on the server, with consent</text>
+<circle cx="1276" cy="955" r="4.5" fill="#667085"/><text x="1292" y="961" font-size="19" font-weight="400" fill="#475467">More state portals beyond MahaDBT and NSP</text>
+<circle cx="1276" cy="987" r="4.5" fill="#667085"/><text x="1292" y="993" font-size="19" font-weight="400" fill="#475467">Insights for scholarship officers</text>
+<text x="80" y="1054" font-size="15" font-weight="400" fill="#667085">Prototype with fictional practice data. TribalSaarthi is independent of MahaDBT, NSP and the Government of India. The student always applies on the official portal.</text>
+</svg>

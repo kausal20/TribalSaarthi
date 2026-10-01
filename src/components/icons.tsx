@@ -15,14 +15,14 @@ export const SparkleIcon = (p: P) => (
   </svg>
 );
 
-/** TribalSaarthi mark: a path rising into a leaf/sun over a stylised figure. */
+/** TribalSaarthi mark: a single route-like S with a small guiding star. */
 export function LogoMark({ size = 30 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <rect width="32" height="32" rx="9" fill="#111827" />
-      <path d="M16 6c5 1.2 8 4.6 8 9.4 0 3.2-2 5.6-5.2 5.6-1.5 0-2.8-.5-3.8-1.4C14 21 13 23 11 25c-.9-6 .8-9.6 3-11.6-1.2-2 .2-5.2 2-7.4Z" fill="#0F8B78" />
-      <circle cx="21.5" cy="9.5" r="2.3" fill="#F4B740" />
-      <path d="M8 26c3.5-1.4 6-1.4 9.5 0" stroke="#DDF4ED" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <rect width="32" height="32" rx="9" fill="#10231f" />
+      <path d="M22.4 8.7c-1.9-1.8-5.5-2.1-8.4-.6-2.7 1.4-3.6 4.3-1.3 5.9 1.3.9 3.6 1.2 5.5 1.8 2.8.8 2.8 3.1.7 4.5-2.5 1.7-6.3.9-8.1-1.1" fill="none" stroke="#33b39a" strokeWidth="3.1" strokeLinecap="round" />
+      <path d="M9.2 23.2c2.1 1.6 5.1 1.8 7.7.7" fill="none" stroke="#d8f0e7" strokeWidth="1.35" strokeLinecap="round" opacity=".9" />
+      <path d="m23.5 6.5.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7.7-1.9Z" fill="#f4b740" />
     </svg>
   );
 }

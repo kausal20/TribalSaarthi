@@ -29,10 +29,10 @@ export function applyFilters(list: Opportunity[], f: Filters): Opportunity[] {
 }
 
 export const SUGGESTIONS: { label: string; preset: Partial<Filters> }[] = [
-  { label: 'Post-Matric Scholarship', preset: { q: 'post-matric' } },
-  { label: 'Pre-Matric Scholarship', preset: { q: 'pre-matric' } },
-  { label: 'Overseas Scholarship', preset: { loc: 'Overseas' } },
-  { label: 'Research Fellowship', preset: { level: 'research' } },
+  { label: 'School scholarship', preset: { level: 'school' } },
+  { label: 'College scholarship', preset: { level: 'undergraduate' } },
+  { label: 'Study abroad', preset: { loc: 'Overseas' } },
+  { label: 'PhD and research', preset: { level: 'research' } },
 ];
 
 /** Treat restored browser data as untrusted and tolerate older filter versions. */

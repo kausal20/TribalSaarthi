@@ -4,6 +4,7 @@ import { OPPORTUNITIES } from '../catalogue/data';
 import { SUGGESTIONS, type Filters } from '../catalogue/filters';
 import { go } from '../router';
 import { ArrowIcon, SearchIcon } from './icons';
+import { useT } from '../i18n/i18n';
 
 interface Option {
   id: string;
@@ -15,6 +16,7 @@ interface Option {
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform);
 
 export function SearchBar({ value, onChange, onPreset, onSubmit }: { value: string; onChange: (v: string) => void; onPreset: (p: Partial<Filters>) => void; onSubmit: () => void }) {
+  const t = useT();
   const [focused, setFocused] = useState(false);
   const [active, setActive] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,13 +38,13 @@ export function SearchBar({ value, onChange, onPreset, onSubmit }: { value: stri
 
   const options: Option[] = useMemo(() => {
     const q = value.trim().toLowerCase();
-    if (!q) return SUGGESTIONS.map((s) => ({ id: s.label, label: s.label, hint: 'Filter', run: () => onPreset(s.preset) }));
+    if (!q) return SUGGESTIONS.map((s) => ({ id: s.label, label: t(s.label), hint: t('Filter'), run: () => onPreset(s.preset) }));
     const matches = OPPORTUNITIES.filter((o) => `${o.title} ${o.tagline}`.toLowerCase().includes(q)).slice(0, 4);
     return [
-      { id: '__search', label: `Search for “${value.trim()}”`, hint: 'Enter', run: onSubmit },
-      ...matches.map((o) => ({ id: o.id, label: o.title, hint: 'Open details', run: () => go(`/opportunity/${o.id}`) })),
+      { id: '__search', label: t('Search for “{q}”', { q: value.trim() }), hint: t('Enter'), run: onSubmit },
+      ...matches.map((o) => ({ id: o.id, label: o.title, hint: t('Open details'), run: () => go(`/opportunity/${o.id}`) })),
     ];
-  }, [value, onPreset, onSubmit]);
+  }, [value, onPreset, onSubmit, t]);
 
   const open = focused;
   const choose = (o: Option) => {
@@ -64,8 +66,8 @@ export function SearchBar({ value, onChange, onPreset, onSubmit }: { value: stri
           aria-controls={listId}
           aria-autocomplete="list"
           aria-activedescendant={open && active >= 0 && active < options.length ? `${uid}-o${active}` : undefined}
-          aria-label="Search scholarships, fellowships, schemes"
-          placeholder="Search scholarships"
+          aria-label={t('Search scholarships, fellowships, schemes')}
+          placeholder={t('Search scholarships')}
           autoComplete="off"
           value={value}
           onChange={(e) => { onChange(e.target.value); setActive(-1); }}
@@ -80,16 +82,16 @@ export function SearchBar({ value, onChange, onPreset, onSubmit }: { value: stri
           }}
         />
         {value ? (
-          <button type="button" className="search-clear" onPointerDown={e => e.preventDefault()} onClick={() => { onChange(''); setActive(-1); setFocused(true); inputRef.current?.focus(); }} aria-label="Clear search">✕</button>
+          <button type="button" className="search-clear" onPointerDown={e => e.preventDefault()} onClick={() => { onChange(''); setActive(-1); setFocused(true); inputRef.current?.focus(); }} aria-label={t('Clear search')}>✕</button>
         ) : (
           <kbd className="kbd" aria-hidden="true">{isMac ? '⌘ K' : 'Ctrl K'}</kbd>
         )}
-        <button type="button" className="search-submit" onClick={() => { onSubmit(); setFocused(false); inputRef.current?.blur(); }}>Search</button>
+        <button type="button" className="search-submit" onClick={() => { onSubmit(); setFocused(false); inputRef.current?.blur(); }}>{t('Search')}</button>
       </motion.div>
       <AnimatePresence>
         {open && (
-          <motion.ul id={listId} role="listbox" aria-label="Search suggestions" className="suggest" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.16, ease: 'easeOut' }}>
-            <li className="suggest-h" role="presentation">{value.trim() ? 'Results' : 'Popular searches'}</li>
+          <motion.ul id={listId} role="listbox" aria-label={t('Search suggestions')} className="suggest" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.16, ease: 'easeOut' }}>
+            <li className="suggest-h" role="presentation">{value.trim() ? t('Results') : t('Popular searches')}</li>
             {options.map((o, i) => (
               <li key={o.id} id={`${uid}-o${i}`} role="option" aria-selected={i === active} className={i === active ? 'on' : ''} onPointerDown={(e) => e.preventDefault()} onClick={() => choose(o)} onMouseEnter={() => setActive(i)}>
                 <SearchIcon width={15} height={15} />

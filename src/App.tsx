@@ -7,12 +7,13 @@ import { Analytics, Apply, ApplicationPage, Home as ToolsHome, Officer, Schemes 
 import { Catalogue } from './pages/Catalogue';
 import { Detail } from './pages/Detail';
 import { Workspace } from './pages/Workspace';
-import { MyApplications } from './pages/MyApplications';
+import { MySaved } from './pages/MySaved';
 import { Continue } from './pages/Continue';
+import { Companion } from './pages/Companion';
+import { Dashboard } from './pages/Dashboard';
 import { AboutSafety, Dialog } from './components/Dialogs';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/TrustSection';
-import { CometAssistant } from './components/CometAssistant';
 
 function ResetDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const st = useDemoState();
@@ -58,7 +59,7 @@ export function App() {
 
   // Page key: sections of the same guided workspace do not re-run the page transition.
   const pageKey = route.name === 'guide' ? `guide-${route.id}` : route.name === 'opportunity' || route.name === 'application' ? `${route.name}-${route.id}` : route.name;
-  const wide = route.name === 'guide';
+  const wide = route.name === 'guide' || route.name === 'companion';
   const legacy = ['tools', 'apply', 'application', 'officer', 'schemes', 'analytics'].includes(route.name);
 
   useEffect(() => {
@@ -68,7 +69,7 @@ export function App() {
   return (
     <>
       <a href="#main" className="skip">Skip to content</a>
-      <Navbar onAbout={() => setAbout(true)} onReset={() => setReset(true)} />
+      {route.name !== 'guide' && <Navbar onAbout={() => setAbout(true)} onReset={() => setReset(true)} />}
       {warning && (
         <div className="wrap2"><div className="callout action-callout" role="alert">{warning} <button className="btn-quiet" onClick={dismissLoadWarning}>Dismiss</button></div></div>
       )}
@@ -86,7 +87,9 @@ export function App() {
           {route.name === 'catalogue' && <Catalogue />}
           {route.name === 'opportunity' && <Detail id={route.id} />}
           {route.name === 'guide' && <Workspace id={route.id} section={route.section} />}
-          {route.name === 'applications' && <MyApplications />}
+          {route.name === 'applications' && <MySaved />}
+          {route.name === 'companion' && <Companion />}
+          {route.name === 'dashboard' && <Dashboard />}
           {route.name === 'continue' && <Continue portal={route.portal} id={route.id} />}
           {route.name === 'tools' && <ToolsHome />}
           {route.name === 'apply' && <Apply />}
@@ -97,7 +100,6 @@ export function App() {
         </motion.main>
       </AnimatePresence>
       <Footer onAbout={() => setAbout(true)} />
-      {route.name !== 'guide' && <CometAssistant />}
       <div className="toast-area" aria-live="polite">
         {ui.toast && (
           <div key={ui.toast.n} className={`toast ${ui.toast.kind}`} role={ui.toast.kind === 'error' ? 'alert' : 'status'}>

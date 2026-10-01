@@ -6,6 +6,8 @@ export type Route =
   | { name: 'opportunity'; id: string }
   | { name: 'guide'; id: string; section: SectionId }
   | { name: 'applications' }
+  | { name: 'companion' }
+  | { name: 'dashboard' }
   | { name: 'continue'; portal: 'mahadbt' | 'nsp'; id?: string }
   // legacy workflow prototype (demo tools)
   | { name: 'tools' }
@@ -30,6 +32,10 @@ export function parse(hash: string): Route {
     }
     case 'applications':
       return { name: 'applications' };
+    case 'dashboard':
+      return { name: 'dashboard' };
+    case 'companion':
+      return { name: 'companion' };
     case 'continue':
       return { name: 'continue', portal: parts[1] === 'nsp' ? 'nsp' : 'mahadbt', id: parts[2] };
     case 'tools':
@@ -62,3 +68,11 @@ export function useRoute(): Route {
 export const go = (path: string) => {
   window.location.hash = path;
 };
+
+// Remember the page before this one, so a page can offer "back" only when the student really came from there.
+let currentHash = typeof window === 'undefined' ? '' : window.location.hash;
+let previousHash = '';
+if (typeof window !== 'undefined') {
+  window.addEventListener('hashchange', () => { previousHash = currentHash; currentHash = window.location.hash; });
+}
+export const cameFromScheme = () => parse(previousHash).name === 'opportunity';

@@ -5,15 +5,23 @@ export const SOURCE_NOTE = 'MahaDBT public home page (checked 30 Sep 2026); the 
 export const PORTAL = {
   id: 'mahadbt',
   name: 'MahaDBT',
-  hosts: ['mahadbt.maharashtra.gov.in'],
+  // MahaDBT 1.0 and MahaDBT 2.0 are two sites; the guide works on both.
+  hosts: ['mahadbt.maharashtra.gov.in', 'mahadbt2.maharashtra.gov.in'],
   homePath: '/Home/LandingPage',
+  // Link texts the guide may take the student to. MahaDBT 2.0 shows Marathi labels by default.
+  labels: {
+    register: ['New Registration', 'Register', 'नोंदणी करा'],
+    login: ['Login', 'Citizen Login', 'नागरिकांसाठी लॉगिन', 'लॉगिन'],
+    home: ['Home', 'मुख्यपृष्ठ'],
+    schemes: ['All Schemes'],
+  },
   // Default upload limits are NOT verified. The portal shows its own limit next to each upload field.
   docLimits: { maxBytes: 1_000_000, accepted: ['application/pdf', 'image/jpeg', 'image/png'], verified: false },
   menus: ['Home', 'Post Matric Scholarship', 'Pre Matric Scholarship', 'Pension Schemes', 'Farmer Schemes', 'Labour Schemes', 'Special Assistance Schemes'],
   dashboard: ['Home', 'Profile', 'All Schemes', 'My Applied Scheme'],
   facts: {
     register:
-      'On the MahaDBT home page use the “New Registration” button. The portal offers Aadhaar-based registration (OTP or biometric) or non-Aadhaar enrolment. You enter any Aadhaar, OTP or biometric details yourself — I never see or handle them.',
+      'On the MahaDBT home page use the “New Registration” button (MahaDBT 2.0 shows “Register”). The portal offers Aadhaar-based registration (OTP or biometric) or non-Aadhaar enrolment. You enter any Aadhaar, OTP or biometric details yourself — I never see or handle them.',
     login:
       'On the home page choose your user type, then enter your username, password and the CAPTCHA yourself. I cannot log in for you and never ask for your password, OTP or CAPTCHA.',
     forgot: 'Use the “Forgot User Name / Password” link on the home page.',
@@ -22,6 +30,8 @@ export const PORTAL = {
     postMatric:
       'The “Post Matric Scholarship” menu on the home page lists post-matric schemes. Applying requires login. Each scheme has its own requirements — read them on the scheme page.',
     preMatric: 'Pre Matric Scholarship opens a separate portal (prematric.mahait.org) with its own login. This guide currently works only on mahadbt.maharashtra.gov.in.',
+    mahadbt2:
+      'MahaDBT 2.0 (mahadbt2.maharashtra.gov.in) is a separate site from MahaDBT 1.0. Its public home page shows Login and Register options, opens in Marathi and has an “english” switch. A notice on the home page says which portal accepts applications for which academic year: read it before you start.',
     documents:
       'I do not have a verified document list for any specific scheme. Each scheme lists its own required documents on its application page — I can read the upload fields shown on the page you are on and check your files against basic rules.',
   },
@@ -32,6 +42,7 @@ export const NSP_PORTAL = {
   name: 'National Scholarship Portal',
   hosts: ['scholarships.gov.in'],
   homePath: '/home',
+  labels: { register: ['OTR'], login: ['Apply For Scholarship', 'Students'], home: ['Home'], schemes: ['Schemes on NSP'] },
   docLimits: { maxBytes: 1_000_000, accepted: ['application/pdf', 'image/jpeg', 'image/png'], verified: false },
   menus: ['Students', 'Schemes on NSP', 'OTR', 'Apply For Scholarship'],
   dashboard: [],
@@ -46,8 +57,25 @@ export const NSP_PORTAL = {
   },
 };
 
-export const portalForHost = (host) => [PORTAL, NSP_PORTAL].find((portal) => portal.hosts.includes(host)) || null;
+export const TRIBAL_PORTAL = {
+  id: 'tribal', name: 'Ministry of Tribal Affairs', hosts: ['tribal.nic.in'], homePath: '/ScholarshiP.aspx',
+  labels: { register: [], login: [], home: ['Home'], schemes: ['Scholarship', 'National Scholarship', 'Pre Matric', 'Post Matric'] },
+  docLimits: { maxBytes: 1_000_000, accepted: ['application/pdf', 'image/jpeg', 'image/png'], verified: false },
+  menus: ['Pre Matric', 'Post Matric', 'National Scholarship', 'National Fellowship', 'National Overseas', 'DBT'], dashboard: [],
+  facts: {
+    register: 'This Ministry page explains scholarship schemes. Registration happens on the application portal linked under the relevant scheme. Choose your scheme first and follow its official application link.',
+    login: 'This is a scholarship information page, not a shared student login. Follow the relevant scheme’s official application link and enter credentials yourself there.',
+    forgot: 'Use account recovery on the application portal where you registered, rather than this Ministry information page.',
+    schemes: 'This page describes Pre Matric, Post Matric, National Scholarship, National Fellowship and National Overseas schemes. Read the relevant section and its current guidelines, then follow its application link.',
+    preMatric: 'Pre Matric applications are handled through States/UTs using their portal or NSP. Read the Ministry’s Pre Matric section and the current application guidance for your State.',
+    postMatric: 'Post Matric applications are handled through States/UTs using their portal or NSP. Read the Ministry’s Post Matric section and your State’s current application guidance.',
+    documents: 'Required documents depend on the scheme and application portal. Read the current scheme guidelines; this information page may have no upload fields. A local file check does not upload or verify authenticity.',
+  },
+};
+export const portalForHost = (host) => [PORTAL, NSP_PORTAL, TRIBAL_PORTAL].find((portal) => portal.hosts.includes(host)) || null;
 export const isPortalHost = (host) => !!portalForHost(host);
-export const sourceNoteFor = (portal) => portal.id === 'nsp'
+export const sourceNoteFor = (portal) => portal.id === 'tribal'
+  ? 'Ministry of Tribal Affairs Scholarship & DBT page (checked 1 Oct 2026); verify current guidelines on the official application portal.'
+  : portal.id === 'nsp'
   ? 'National Scholarship Portal public Students and Schemes pages (checked 30 Sep 2026); verify current details on NSP.'
   : SOURCE_NOTE;

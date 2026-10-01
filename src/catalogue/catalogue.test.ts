@@ -72,7 +72,17 @@ describe('assistant', () => {
     expect(r.text).toMatch(/Which class or course/);
   });
   it('falls back safely on unknown questions', () => {
-    expect(respond(nfst, 'who won the cricket match', ctx)).toMatchObject({ text: FALLBACK, kind: 'fallback' });
+    const r = respond(nfst, 'who won the cricket match', ctx);
+    expect(r.kind).toBe('fallback');
+    expect(r.text.startsWith(FALLBACK)).toBe(true);
+  });
+  it('answers small talk like a person, not with the fallback', () => {
+    for (const m of ['what you name', 'what can you hel me', 'what can you do fro me', 'who are you']) {
+      const r = respond(nfst, m, ctx);
+      expect(r.kind, m).toBe('answer');
+      expect(r.text, m).toContain('Saarthi AI');
+    }
+    expect(respond(nfst, 'thanks', ctx).kind).toBe('answer');
   });
   it('refuses sensitive data', () => {
     expect(respond(nfst, 'my OTP is 123456', ctx).kind).toBe('safety');

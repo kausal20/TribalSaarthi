@@ -11,6 +11,9 @@ export interface AIReply {
   section?: SectionId;
 }
 
+/** Language selected for the AI reply. */
+export interface AIContext { language: 'en' | 'hi' }
+
 export type AIHealth = { state: 'on'; model: string } | { state: 'off'; reason: string };
 
 const SECTIONS: SectionId[] = ['overview', 'eligibility', 'documents', 'form', 'status'];
@@ -92,12 +95,13 @@ export async function askAI(
   draft: Draft | undefined,
   section: SectionId,
   history: { role: 'user' | 'assistant'; content: string }[],
+  context?: AIContext,
 ): Promise<AIReply | null> {
   try {
     const res = await fetch('/api/assistant', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ messages: history.slice(-10), scheme: buildSchemeContext(opp, draft, section), catalogue: buildCatalogueContext() }),
+      body: JSON.stringify({ messages: history.slice(-10), scheme: buildSchemeContext(opp, draft, section), catalogue: buildCatalogueContext(), context }),
       signal: AbortSignal.timeout(25_000),
     });
     if (!res.ok) return null;
@@ -109,6 +113,24 @@ export async function askAI(
       if (m && m[1] === opp.id && (SECTIONS as string[]).includes(m[2])) target = m[2] as SectionId;
     }
     return { text: data.text.trim(), section: target };
+  } catch {
+    return null;
+  }
+}
+
+/** Short explanation of a locally computed shortlist. Null on any failure (the caller writes its own text). */
+export async function explainShortlist(summary: string, shortlist: string[], context?: AIContext): Promise<string | null> {
+  try {
+    const content = `My details: ${summary}. A checklist tool shortlisted: ${shortlist.length ? shortlist.join('; ') : 'nothing from this catalogue'}. In under 60 words, say why these may fit or what to check next. Use only the catalogue, do not decide eligibility, do not add schemes that are not in the shortlist.`;
+    const res = await fetch('/api/assistant', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content }], catalogue: buildCatalogueContext(), context }),
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { text?: string };
+    return data.text?.trim() || null;
   } catch {
     return null;
   }

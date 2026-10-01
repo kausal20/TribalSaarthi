@@ -1,256 +1,283 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { GuideReply } from '../components/GuideReply';
-import { SparkleIcon, ArrowIcon, BackIcon } from '../components/icons';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { findOpportunity } from '../catalogue/data';
 import { respond } from '../catalogue/assistant';
-import { aiHealth, askAI, type AIHealth } from '../catalogue/aiGuide';
-import type { OppDocument, Opportunity, SectionId } from '../catalogue/types';
-import { attach, confirmDoc, draftLabel, emptyDraft, markSubmitted, removeDoc, setField, submitBlockers } from '../catalogue/drafts';
-import { updateDraft, useDrafts } from '../catalogue/draftStore';
-import { acceptedLabel } from '../engine/evaluator';
-import { bytesToDataUrl, sanitizeFilename, sniffMatches, validateFile } from '../engine/files';
-import { go } from '../router';
-import { report } from '../store';
+import { aiHealth, askAI, explainShortlist, type AIContext, type AIHealth } from '../catalogue/aiGuide';
+import { emptyDraft } from '../catalogue/drafts';
+import { useDrafts } from '../catalogue/draftStore';
+import { clearChats, deleteChat, isSensitive, redact, relativeTime, requestOpenChat, saveChat, takeOpenChat, takeSheet, useChats, type Chat, type StoredMsg } from '../catalogue/chatStore';
+import type { Opportunity, SectionId } from '../catalogue/types';
+import { cameFromScheme, go } from '../router';
 import { Dialog } from '../components/Dialogs';
-import { sampleFileFor } from './StudentApplication';
+import { BackIcon, ArrowIcon, ExternalIcon } from '../components/icons';
+import { SaarthiMark } from '../components/SaarthiMark';
+import { DocReadiness } from '../components/DocReadiness';
+import { LanguageSwitch } from '../components/LanguageSwitch';
+import { MAX_FILE_BYTES } from '../engine/files';
+import { INCOME_LABEL, STAGE_LABEL, matchSchemes, officialLink, summarizeProfile, translateReason, type Income, type Profile, type Stage } from '../catalogue/matcher';
+import { Typewriter, ease } from '../components/motionKit';
+import { useLang, useT, type TFn } from '../i18n/i18n';
 import { NotFound } from './Detail';
 
-interface Msg {
-  id: number;
-  who: 'guide' | 'you';
-  text: string;
-  source?: string;
-  fieldKey?: string;
+const HomeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" /></svg>
+);
+const ATTACH_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+const MAX_ATTACH = 3;
+
+interface SpeechRec {
+  lang: string; continuous: boolean; interimResults: boolean;
+  onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void; stop(): void;
 }
 
-const QUICK: [string, string][] = [
-  ['Documents needed', 'What documents do I need?'],
-  ['Where to apply', 'Where do I apply?'],
-  ['Check my progress', 'Check what I have completed'],
-  ['Eligibility', 'Who is eligible?'],
+const uid = () => (globalThis.crypto?.randomUUID?.() ?? `c${Date.now()}${Math.random().toString(16).slice(2)}`);
+
+/** Scheme-page anchors the guide can point to (the scheme page has these sections). */
+const DETAIL_ANCHOR: Record<SectionId, string> = { overview: 'd-overview', eligibility: 'd-eligibility', documents: 'd-documents', form: 'd-apply', status: 'd-apply' };
+const CHIP_LABEL: Record<SectionId, string> = { overview: 'See the overview', eligibility: 'See eligibility', documents: 'See the document list', form: 'See how to apply', status: 'See how to apply' };
+
+function openOnSchemePage(oppId: string, section: string) {
+  go(`/opportunity/${oppId}`);
+  const anchor = DETAIL_ANCHOR[section as SectionId] ?? 'd-overview';
+  setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 450);
+}
+
+const promptsFor = (o: Opportunity) =>
+  o.official
+    ? ['What documents do I need?', 'Who is eligible?', 'How much will I get?', 'How do I apply?']
+    : ['What documents do I need?', 'Who is eligible?', 'How do I apply?'];
+
+const SELECTS: { key: keyof Profile; label: string; options: [string, string][] }[] = [
+  { key: 'living', label: 'Where do you stay while studying?', options: [['home', 'At home / day scholar'], ['hostel', 'In a hostel']] },
+  { key: 'stage', label: 'What are you studying now?', options: (Object.keys(STAGE_LABEL) as Stage[]).map((k) => [k, STAGE_LABEL[k]]) },
+  { key: 'studyIn', label: 'Where do you study?', options: [['india', 'In India'], ['abroad', 'Abroad']] },
+  { key: 'state', label: 'Which state do you live in?', options: [['maharashtra', 'Maharashtra'], ['other', 'Another state']] },
+  { key: 'income', label: 'Yearly family income', options: (Object.keys(INCOME_LABEL) as Income[]).map((k) => [k, INCOME_LABEL[k]]) },
 ];
 
+/** One line that says what the student answered, in the chosen language. */
+function summaryText(p: Profile, t: TFn): string {
+  return [
+    t('ST student'),
+    t(STAGE_LABEL[p.stage]),
+    p.studyIn === 'india' ? t('study in India') : t('study abroad'),
+    p.state === 'maharashtra' ? t('Maharashtra') : t('another state'),
+    `${t('family income')}: ${t(INCOME_LABEL[p.income])}`,
+    p.living === 'hostel' ? t('stays in a hostel') : t('lives at home'),
+  ].join(' · ');
+}
 
-function Assistant({ opp, msgs, onAsk, thinking, sectionTitle, onOpenApplication, ai }: { opp: Opportunity; msgs: Msg[]; onAsk: (t: string) => void; thinking: boolean; sectionTitle: string; onOpenApplication: () => void; ai?: AIHealth }) {
-  const [q, setQ] = useState('');
-  const started = msgs.length > 0;
-  const logRef = useRef<HTMLDivElement>(null);
-  const follow = useRef(true);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    if (started) document.getElementById('guide')?.scrollIntoView({ block: 'start' });
-  }, [started]);
-  useEffect(() => {
-    const el = logRef.current;
-    if (el && follow.current) el.scrollTo({ top: el.scrollHeight });
-  }, [msgs.length, thinking]);
-  const send = () => {
-    if (!q.trim() || thinking) return;
-    follow.current = true;
-    onAsk(q.trim());
-    setQ('');
-    inputRef.current?.focus();
-  };
+function MatchForm({ onSubmit }: { onSubmit: (p: Profile) => void }) {
+  const t = useT();
+  const [p, setP] = useState<Profile>({ living: 'home', stage: 'ug', studyIn: 'india', state: 'maharashtra', income: 'unsure', topInstitute: 'no' });
+  const showTop = (p.stage === 'ug' || p.stage === 'pg') && p.studyIn === 'india';
   return (
-    <aside id="guide" className={`guide centered-guide ${started ? 'conversation-started' : 'conversation-empty'}`} aria-label="TribalSaarthi chat guide">
-      <div className="guide-inner">
-        {!started && <header className="prompt-welcome"><span className="prompt-symbol"><SparkleIcon width={28} height={28} /></span><h2>What would you like<br />help with?</h2><p>Understand the requirements, prepare your documents,<br className="desktop-break" /> or get help with an application field.</p></header>}
-        {started && <header className="conversation-heading"><h2>Your conversation</h2><button type="button" onClick={onOpenApplication}>View {sectionTitle.toLowerCase()} <ArrowIcon width={15} height={15} /></button></header>}
-        <div className="chat" ref={logRef} role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation" tabIndex={0} onScroll={e => { const el = e.currentTarget; follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60; }}>
-          {msgs.map((m) => <GuideReply key={m.id} text={m.text} source={m.source} who={m.who} />)}
-          {thinking && <div className="bubble b-guide typing" role="status"><span /><span /><span /><span className="sr-only">Guide is preparing a reply</span></div>}
-        </div>
-        <form className="composer" noValidate onSubmit={e => { e.preventDefault(); send(); }}>
-          <label htmlFor="ask">Ask your guide</label>
-          <textarea ref={inputRef} id="ask" aria-label={`Ask your guide about ${opp.title}`} rows={2} value={q} onChange={e => setQ(e.target.value)} placeholder="What would you like help with?" autoComplete="off" aria-describedby="guide-input-help" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} />
-          <div className="composer-bottom"><span id="guide-input-help">Enter to send · Shift + Enter for a new line</span><button type="submit" className="btn-solid" disabled={!q.trim() || thinking} aria-label="Send message"><ArrowIcon width={18} height={18} /><span>Send</span></button></div>
-        </form>
-        <div className="quick" role="group" aria-label="Suggested questions">
-          {QUICK.map(([label, text]) => <button key={label} type="button" className="chip" disabled={thinking} onClick={() => { follow.current = true; onAsk(text); }}>{label}</button>)}
-        </div>
-        <p className={`guide-safety ai-${ai?.state ?? 'checking'}`} role="status">
-          {!ai && 'Checking the AI guide… '}
-          {ai?.state === 'on' && `Live AI guide (${ai.model}), limited to this scheme’s demo information. AI can make mistakes — verify on the official portal. `}
-          {ai?.state === 'off' && `Live AI is off (${ai.reason}); showing built-in answers. `}
-          Never share passwords or OTPs.
-        </p>
-      </div>
-    </aside>
+    <form className="gp-sheet" onSubmit={(e) => { e.preventDefault(); onSubmit(p); }}>
+      {SELECTS.map((s) => (
+        <label key={s.key}>
+          <span>{t(s.label)}</span>
+          <select value={p[s.key]} onChange={(e) => setP({ ...p, [s.key]: e.target.value } as Profile)}>
+            {s.options.map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
+          </select>
+        </label>
+      ))}
+      {showTop && (
+        <label>
+          <span>{t('Admitted to an IIT, AIIMS, IIM, NIT or similar?')}</span>
+          <select value={p.topInstitute} onChange={(e) => setP({ ...p, topInstitute: e.target.value as Profile['topInstitute'] })}>
+            <option value="no">{t('No')}</option><option value="yes">{t('Yes')}</option>
+          </select>
+        </label>
+      )}
+      <p className="gp-sheet-note">{t('Only these answers are used. Do not add your name, Aadhaar or any number.')}</p>
+      <button type="submit" className="gp-send">{t('Find my scholarships')} <ArrowIcon width={16} height={16} /></button>
+    </form>
   );
 }
 
-function DocPanel({ opp }: { opp: Opportunity }) {
-  const drafts = useDrafts();
-  const draft = drafts[opp.id] ?? emptyDraft(opp.id);
-  const [errs, setErrs] = useState<Record<string, string>>({});
-
-  async function add(def: OppDocument, file: File) {
-    setErrs((e) => ({ ...e, [def.key]: '' }));
-    const others = draft.docs.filter((d) => d.key !== def.key).reduce((n, d) => n + d.size, 0);
-    const v = validateFile({ name: file.name, type: file.type, size: file.size }, def.acceptedTypes, others);
-    const fail = (msg: string) => {
-      setErrs((e) => ({ ...e, [def.key]: msg }));
-      report({ ok: false, error: msg }, '');
-    };
-    if (!v.ok) return fail(v.error);
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    if (!sniffMatches(bytes, file.type)) return fail(`"${sanitizeFilename(file.name)}" looks corrupt or is not really a ${acceptedLabel([file.type])} file.`);
-    const r = updateDraft(opp.id, (d) => attach(d, opp, { key: def.key, name: sanitizeFilename(file.name), mime: file.type, size: file.size, dataUrl: bytesToDataUrl(bytes, file.type) }));
-    if (!r.ok) return fail(r.error);
-    report(r, `Attached “${sanitizeFilename(file.name)}”. Not verified — confirm the upload on this page when ready.`);
-  }
-
+export function MatchResults({ m, grid }: { m: StoredMsg; grid?: boolean }) {
+  const t = useT();
+  const groups: [string, 'central' | 'state'][] = [['Central schemes (Government of India)', 'central'], ['State schemes', 'state']];
   return (
-    <div className="stack">
-      <p className="muted small">Accepted types are shown per document; max 1 MB each. Use fictional sample files only. Files stay in this browser.</p>
-      {opp.documents.map((def) => {
-        const d = draft.docs.find((x) => x.key === def.key);
+    <div className={`gp-results ${grid ? 'is-grid' : ''}`}>
+      {groups.map(([title, level]) => {
+        const items = (m.matches ?? []).filter((x) => x.level === level);
+        if (!items.length) return null;
         return (
-          <div key={def.key} className="up">
-            <div className="row between wrap gap">
-              <strong>{def.label}</strong>
-              <span className={`badge ${d ? (d.confirmed ? 'doc-human_reviewed' : 'doc-present_unverified') : 'doc-missing'}`}>
-                {!d && 'Not attached'}
-                {d && !d.confirmed && '📎 Attached — not verified'}
-                {d && d.confirmed && '✔ Upload confirmed — not verified'}
-              </span>
-            </div>
-            <div className="muted small">{acceptedLabel(def.acceptedTypes)} · {def.note}</div>
-            {d && <div className="small">File: {d.name} · {(d.size / 1000).toFixed(1)} KB</div>}
-            <div className="row wrap gap">
-              <label className="btn-outline file-btn">
-                {d ? 'Replace file' : 'Choose file'}
-                <input type="file" className="sr-only" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => { const f = e.target.files?.[0]; if (f) void add(def, f); e.target.value = ''; }} />
-              </label>
-              <button type="button" className="btn-outline" onClick={async () => void add(def, await sampleFileFor(def))}>Use fictional sample file</button>
-              {d && !d.confirmed && <button type="button" className="btn-solid" onClick={() => report(updateDraft(opp.id, (x) => confirmDoc(x, def.key)), 'Upload confirmed on the simulated portal (still not verified).')}>Confirm upload</button>}
-              {d && <button type="button" className="btn-quiet" onClick={() => report(updateDraft(opp.id, (x) => removeDoc(x, def.key)), 'Attachment removed.')}>Remove</button>}
-            </div>
-            {errs[def.key] && <div className="err" role="alert">⚠ {errs[def.key]}</div>}
-          </div>
+          <section key={level} aria-label={t(title)}>
+            <h3>{t(title)}</h3>
+            <ul>
+              {items.map((x) => {
+                const o = findOpportunity(x.id);
+                if (!o) return null;
+                return (
+                  <li key={x.id} className="gp-match">
+                    <div className="gp-match-head"><strong>{o.title}</strong><span className={`gp-fit ${x.fit}`}>{x.fit === 'likely' ? t('May fit you') : t('Check details')}</span></div>
+                    <ul className="gp-why">{x.reasons.map((r) => <li key={r}>{translateReason(t, r)}</li>)}</ul>
+                    <div className="gp-match-links">
+                      <a className="gp-go" href={officialLink(o)} target="_blank" rel="noopener noreferrer">{t('Apply on official website')} <ExternalIcon width={14} height={14} /></a>
+                      <a className="gp-more" href={`#/opportunity/${o.id}`}>{t('Scheme details')}</a>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         );
       })}
-      <details className="helpers">
-        <summary>Try bad files (demo)</summary>
-        <div className="row wrap gap">
-          {(() => {
-            const def = opp.documents[0];
-            return (
-              <>
-                <button type="button" className="btn-outline" onClick={() => void add(def, new File(['hello'], 'notes.txt', { type: 'text/plain' }))}>Wrong type (.txt)</button>
-                <button type="button" className="btn-outline" onClick={() => void add(def, new File([new Uint8Array(1_200_000)], 'huge.pdf', { type: 'application/pdf' }))}>Oversized</button>
-                <button type="button" className="btn-outline" onClick={() => void add(def, new File(['not a real pdf'], 'fake.pdf', { type: 'application/pdf' }))}>Corrupt</button>
-              </>
-            );
-          })()}
-        </div>
-      </details>
+      {(m.matchNotes ?? []).map((n) => <p key={n} className="gp-sheet-note">{t(n)}</p>)}
+      <p className="gp-sheet-note">{t('These are pointers, not decisions. Only the provider decides who is eligible. Confirm the current notice on the official website.')}</p>
+      <div className="gp-portals">
+        <a href="https://scholarships.gov.in/" target="_blank" rel="noopener noreferrer">{t('National Scholarship Portal')} ↗</a>
+        <a href="https://mahadbt.maharashtra.gov.in/" target="_blank" rel="noopener noreferrer">MahaDBT ↗</a>
+      </div>
     </div>
   );
 }
 
-function FormPanel({ opp, onFieldFocus }: { opp: Opportunity; onFieldFocus: (key: string) => void }) {
-  const drafts = useDrafts();
-  const draft = drafts[opp.id] ?? emptyDraft(opp.id);
-  const [review, setReview] = useState(false);
-  const blockers = submitBlockers(draft, opp);
+function Bubble({ m, latest, oppId, onProfile }: { m: StoredMsg; latest: boolean; oppId: string; onProfile: (p: Profile) => void }) {
+  const reduce = useReducedMotion();
+  const t = useT();
+  const [done, setDone] = useState(!(latest && m.who === 'guide'));
+  const isGuide = m.who === 'guide';
+  const opp = m.docs ? findOpportunity(oppId) : undefined;
   return (
-    <div className="stack">
-      <div className="fields">
-        {opp.fields.map((f) => {
-          const id = `pf-${f.key}`;
-          const val = draft.fields[f.key] ?? '';
-          const change = (v: string) => { const r = updateDraft(opp.id, (d) => setField(d, f.key, v)); if (!r.ok) report(r, ''); };
-          return (
-            <div className="field" key={f.key}>
-              <label htmlFor={id}>{f.label} {f.required && <span className="req">(required)</span>}</label>
-              {f.type === 'select' ? (
-                <select id={id} value={val} onFocus={() => onFieldFocus(f.key)} onChange={(e) => change(e.target.value)} aria-describedby={`${id}-h`}>
-                  <option value="">Choose…</option>
-                  {f.options!.map((o) => <option key={o}>{o}</option>)}
-                </select>
-              ) : (
-                <input id={id} type="text" value={val} onFocus={() => onFieldFocus(f.key)} onChange={(e) => change(e.target.value)} aria-describedby={`${id}-h`} />
-              )}
-              <div id={`${id}-h`} className="muted small">{f.help}</div>
+    <motion.li
+      className={`gp-msg ${isGuide ? 'gp-guide' : 'gp-you'}`}
+      initial={reduce ? false : isGuide ? { opacity: 0, x: -18, y: 8, filter: 'blur(4px)' } : { opacity: 0, x: 28, scale: 0.94 }}
+      animate={{ opacity: 1, x: 0, y: 0, scale: 1, filter: 'blur(0px)' }}
+      transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+    >
+      {isGuide && <span className="gp-avatar" aria-hidden="true"><SaarthiMark size={30} /></span>}
+      <div className="gp-bubble">
+        <span className="sr-only">{isGuide ? t('Saarthi AI says: ') : t('You said: ')}</span>
+        <div className="gp-text">{isGuide && latest ? <Typewriter text={m.text} speed={10} onDone={() => setDone(true)} /> : m.text}</div>
+        {isGuide && m.form && <MatchForm onSubmit={onProfile} />}
+        {isGuide && m.docs && opp && <DocReadiness opp={opp} />}
+        {isGuide && done && m.matches && <MatchResults m={m} />}
+        {isGuide && done && m.chip && (
+          <button type="button" className="gp-chip-link" onClick={() => openOnSchemePage(oppId, m.chip!.section)}>{t(m.chip.label)} <ArrowIcon width={13} height={13} /></button>
+        )}
+        {isGuide && done && m.source && <details className="gp-src"><summary>{t('Source')}</summary>{m.source}</details>}
+      </div>
+    </motion.li>
+  );
+}
+
+function History({ open, onClose, chats, currentId, onPick }: { open: boolean; onClose: () => void; chats: Chat[]; currentId: string; onPick: (c: Chat) => void }) {
+  const t = useT();
+  const students = [...new Set(chats.map((c) => c.student).filter((s): s is string => !!s))];
+  const [only, setOnly] = useState<string | null>(null);
+  const shown = only ? chats.filter((c) => c.student === only) : chats;
+  return (
+    <Dialog open={open} onClose={onClose} title={t('Recent chats')} side left>
+      {chats.length === 0 ? (
+        <p className="gp-empty-hist">{t('No saved chats yet. Your conversations with the guide appear here.')}</p>
+      ) : (
+        <>
+          {students.length > 0 && (
+            <div className="gp-students" role="group" aria-label={t('Show chats for')}>
+              <button type="button" aria-pressed={only === null} onClick={() => setOnly(null)}>{t('All students')}</button>
+              {students.map((s) => <button type="button" key={s} aria-pressed={only === s} onClick={() => setOnly(s)}>{s}</button>)}
             </div>
-          );
-        })}
-      </div>
-      <p className="muted small">Progress is saved automatically in this browser (fictional data only). Last saved {new Date(draft.updatedAt).toLocaleTimeString()}.</p>
-      <div className="row wrap gap">
-        <button type="button" className="btn-solid" onClick={() => setReview(true)}>Review and submit (simulated)</button>
-      </div>
-      <Dialog open={review} onClose={() => setReview(false)} title="Review before submitting">
-        <p>This is a simulated submission. Nothing is sent anywhere.</p>
-        <dl className="dl">
-          {opp.fields.map((f) => <div key={f.key}><dt>{f.label}</dt><dd>{draft.fields[f.key] || <em className="muted">empty</em>}</dd></div>)}
-          {opp.documents.map((d) => { const a = draft.docs.find((x) => x.key === d.key); return <div key={d.key}><dt>{d.label}</dt><dd>{a ? `${a.name} (${a.confirmed ? 'upload confirmed' : 'upload NOT confirmed'}; not verified)` : <em className="muted">not attached</em>}</dd></div>; })}
-        </dl>
-        {blockers.length > 0 && <div className="error-summary" role="alert"><strong>Not ready:</strong><ul>{blockers.map((b) => <li key={b}>{b}</li>)}</ul></div>}
-        <div className="row gap wrap">
-          <button type="button" className="btn-solid" disabled={blockers.length > 0} onClick={() => { if (report(updateDraft(opp.id, (d) => markSubmitted(d, opp)), 'Marked as submitted on the simulated provider page (demo only).')) { setReview(false); go(`/guide/${opp.id}/status`); } }}>I have reviewed this — submit (simulated)</button>
-          <button type="button" className="btn-outline" onClick={() => setReview(false)}>Keep editing</button>
-        </div>
-      </Dialog>
-    </div>
+          )}
+          <ul className="gp-hist">
+            {shown.map((c) => {
+              const opp = findOpportunity(c.oppId);
+              return (
+                <li key={c.id} className={c.id === currentId ? 'is-current' : ''}>
+                  <button type="button" className="gp-hist-open" onClick={() => onPick(c)}>
+                    <strong>{c.student && <em className="gp-who">{c.student}</em>}{c.title}</strong>
+                    <span>{opp?.title ?? t('Scholarship')} · {relativeTime(c.updatedAt)} · {t('{n} messages', { n: c.messages.length })}</span>
+                  </button>
+                  <button type="button" className="gp-hist-del" onClick={() => deleteChat(c.id)} aria-label={`${t('Delete chat')}: ${c.title}`}>{t('Delete')}</button>
+                </li>
+              );
+            })}
+          </ul>
+          <button type="button" className="btn-quiet gp-clear" onClick={() => { if (window.confirm(t('Delete all saved chats from this browser?'))) clearChats(); }}>{t('Clear all history')}</button>
+        </>
+      )}
+      <p className="gp-hist-note">{t('Saved only in this browser. Messages that look like passwords, OTPs or ID numbers are never saved.')}</p>
+    </Dialog>
   );
 }
 
-function StatusPanel({ opp }: { opp: Opportunity }) {
-  const drafts = useDrafts();
-  const draft = drafts[opp.id] ?? emptyDraft(opp.id);
-  const filled = opp.fields.filter((f) => (draft.fields[f.key] ?? '').trim()).length;
-  return (
-    <div className="stack">
-      <ul className="check-list">
-        <li>Fields filled: <strong>{filled} of {opp.fields.length}</strong></li>
-        <li>Documents attached: <strong>{draft.docs.length} of {opp.documents.length}</strong> (none verified)</li>
-        <li>Uploads confirmed by you: <strong>{draft.docs.filter((d) => d.confirmed).length}</strong></li>
-        <li>State: <strong>{draftLabel(draft, opp)}</strong></li>
-      </ul>
-      <div className="callout info-callout">
-        <strong>Next step:</strong> the real application happens on the official provider site. It opens in a new tab and is view-only from here.
-        <p className="row gap wrap"><a className="btn-solid" href={`#/continue/mahadbt/${opp.id}`}>Continue on MahaDBT with guide</a><a className="btn-outline" href={opp.verifiedSourceUrl} target="_blank" rel="noopener noreferrer">Continue on official website ↗ <span className="sr-only">(opens in a new tab)</span></a></p>
-        <p className="small">Safety reminder: never share your password or OTP with this guide or anyone who asks for it.</p>
-      </div>
-    </div>
-  );
-}
-
-export function Workspace({ id, section }: { id: string; section: SectionId }) {
+export function Workspace({ id }: { id: string; section?: SectionId }) {
   const opp = findOpportunity(id);
+  const reduce = useReducedMotion();
+  const t = useT();
+  const lang = useLang();
   const drafts = useDrafts();
   const draft = opp ? drafts[opp.id] ?? emptyDraft(opp.id) : undefined;
-  const nextId = useRef(1);
-  const replyPending = useRef(false);
-  const chatNavigation = useRef(false);
-  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const chats = useChats();
+  const [fromScheme] = useState(cameFromScheme);
+  const aiContext: AIContext = { language: lang };
+
+  const [chatId, setChatId] = useState<string>(uid);
+  const [msgs, setMsgs] = useState<StoredMsg[]>([]);
   const [thinking, setThinking] = useState(false);
-  const [ai, setAi] = useState<AIHealth | undefined>();
-  const [mobilePanel, setMobilePanel] = useState<'application' | 'chat'>(section === 'overview' ? 'chat' : 'application');
-  const [activeField, setActiveField] = useState<string | undefined>();
-  const pendingField = useRef<string | undefined>(undefined);
-  const lastSection = useRef(`${id}/${section}`);
-  const headRef = useRef<HTMLHeadingElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [q, setQ] = useState('');
+  const [, setAi] = useState<AIHealth | undefined>();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const sheetRef = useRef<(() => void) | undefined>(undefined);
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileNote, setFileNote] = useState('');
+  const [listening, setListening] = useState(false);
+  const [micNote, setMicNote] = useState('');
+  const recRef = useRef<SpeechRec | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fresh, setFresh] = useState<number | null>(null);
+  const nextId = useRef(1);
+  const pending = useRef(false);
+  const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const createdAt = useRef(new Date().toISOString());
 
-  useEffect(() => () => clearTimeout(timer.current), []);
-  useEffect(() => { window.scrollTo({ top: 0 }); }, [id]);
+  const loadChat = useCallback((c: Chat) => {
+    setChatId(c.id);
+    setMsgs(c.messages);
+    setFresh(null);
+    createdAt.current = c.createdAt;
+    nextId.current = Math.max(0, ...c.messages.map((m) => m.id)) + 1;
+    setHistoryOpen(false);
+  }, []);
 
+  const newChat = useCallback(() => {
+    setChatId(uid());
+    setMsgs([]);
+    setFresh(null);
+    setQ('');
+    setFiles([]);
+    setFileNote('');
+    createdAt.current = new Date().toISOString();
+    nextId.current = 1;
+    setHistoryOpen(false);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, []);
+
+  // The browser tab is named after the page.
   useEffect(() => {
-    const currentSection = `${id}/${section}`;
-    if (lastSection.current === currentSection) return;
-    lastSection.current = currentSection;
-    if (chatNavigation.current) { chatNavigation.current = false; pendingField.current = undefined; return; }
-    headRef.current?.focus({ preventScroll: true });
-    headRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    if (pendingField.current) {
-      const el = document.getElementById(`pf-${pendingField.current}`);
-      pendingField.current = undefined;
-      el?.focus();
+    const before = document.title;
+    document.title = 'Saarthi AI · TribalSaarthi';
+    return () => { document.title = before; };
+  }, []);
+
+  // Fresh page per scheme; open a saved chat if the history drawer asked for one.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+    const wanted = takeOpenChat();
+    const saved = wanted ? chats.find((c) => c.id === wanted && c.oppId === id) : undefined;
+    if (saved) loadChat(saved);
+    else {
+      newChat();
+      if (takeSheet()) setTimeout(() => sheetRef.current?.(), 60);
     }
-  }, [section, id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   useEffect(() => {
     let live = true;
@@ -258,95 +285,237 @@ export function Workspace({ id, section }: { id: string; section: SectionId }) {
     return () => { live = false; };
   }, []);
 
+  // Save after every change; empty chats are dropped by the store.
+  useEffect(() => {
+    if (!opp || msgs.length === 0) return;
+    saveChat({ id: chatId, oppId: opp.id, title: '', createdAt: createdAt.current, updatedAt: '', messages: msgs });
+  }, [msgs, chatId, opp]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'end' });
+  }, [msgs.length, thinking, reduce]);
+
   const attachedKeys = useMemo(() => draft?.docs.map((d) => d.key) ?? [], [draft]);
   const filledFieldKeys = useMemo(() => Object.entries(draft?.fields ?? {}).filter(([, v]) => v.trim()).map(([k]) => k), [draft]);
 
   if (!opp) return <NotFound what="Opportunity" />;
   if (opp.status !== 'Open in demo') {
-    return <div className="empty2"><h2>No guided workspace yet</h2><p>{opp.title} is a catalogue-only entry.</p><a className="btn-solid" href={`#/opportunity/${opp.id}`}>Back to details</a></div>;
+    return <div className="empty2"><h2>{t('No guide for this one yet')}</h2><p>{t('{title} is a catalogue-only entry.', { title: opp.title })}</p><a className="btn-solid" href={`#/opportunity/${opp.id}`}>{t('Back to details')}</a></div>;
   }
 
-  const sec = opp.sections.find((s) => s.id === section)!;
+  const started = msgs.length > 0;
 
-  const ask = async (text: string) => {
-    if (!text.trim() || replyPending.current) return;
-    replyPending.current = true;
-    const rule = respond(opp, text, { activeField, attachedKeys, filledFieldKeys });
+  const addFiles = (list: FileList | null) => {
+    if (!list) return;
+    const next = [...files];
+    const issues: string[] = [];
+    for (const f of Array.from(list)) {
+      if (next.length >= MAX_ATTACH) { issues.push(t('Up to {n} files at a time.', { n: MAX_ATTACH })); break; }
+      if (!ATTACH_TYPES.includes(f.type)) issues.push(`${f.name}: ${t('only PDF, JPG or PNG.')}`);
+      else if (f.size > MAX_FILE_BYTES) issues.push(`${f.name}: ${t('over 1 MB.')}`);
+      else next.push(f);
+    }
+    setFiles(next);
+    setFileNote(issues.join(' '));
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  /** `shown` is what the student sees (and what the AI receives); `plain` is the English used by the built-in fallback rules. */
+  const ask = async (raw: string, plain = raw) => {
+    const text = raw.trim();
+    if ((!text && files.length === 0) || pending.current) return;
+    pending.current = true;
+    const names = files.map((f) => f.name);
+    setQ('');
+    setFiles([]);
+    setFileNote('');
+    const secret = isSensitive(text);
+    const rule = respond(opp, plain.trim() || 'documents', { attachedKeys, filledFieldKeys });
     const history = [...msgs.map((m) => ({ role: m.who === 'you' ? ('user' as const) : ('assistant' as const), content: m.text })), { role: 'user' as const, content: text }];
-    setMsgs((m) => [...m, { id: nextId.current++, who: 'you', text }]);
+    setMsgs((m) => [...m, { id: nextId.current++, who: 'you', text: [redact(text), ...names.map((n) => `📎 ${n}`)].filter(Boolean).join('\n') }]);
     setThinking(true);
 
-    let reply: { text: string; source?: string; section?: SectionId; field?: string };
-    if (rule.kind === 'safety') {
-      // Secrets never leave the browser: safety replies are built in and skip the AI call entirely.
-      reply = { text: rule.text };
+    let reply: { text: string; source?: string; section?: SectionId };
+    if (!text) {
+      reply = { text: t('I kept your file(s) on this device only. I cannot read attachments here, and nothing was uploaded. To check a document on the official portal, use the TribalSaarthi browser extension, which asks your permission each time. Ask me which documents this scheme needs.') };
+    } else if (secret || rule.kind === 'safety') {
+      // Secrets never leave the browser: the safety reply is built in and the AI is not called.
+      reply = { text: t('Please do not share passwords, OTPs, PINs or ID/bank numbers with me. I never need them.') };
     } else {
-      const answer = await askAI(opp, draft, section, history);
+      const answer = await askAI(opp, draft, 'overview', history, aiContext);
       if (answer) {
-        reply = { text: answer.text, source: `AI guide using only this scheme’s demo information (${opp.title}). Verify on the official provider portal.`, section: answer.section };
+        reply = { text: answer.text, source: t('AI guide ({kind}) for {title}. Confirm the current notice on the official portal.', { kind: opp.official ? t('official scheme facts') : t('practice example'), title: opp.title }), section: answer.section };
         setAi((cur) => (cur?.state === 'on' ? cur : { state: 'on', model: 'AI' }));
       } else {
-        reply = { text: rule.text, source: rule.source, section: rule.navigate?.section, field: rule.navigate?.field };
+        reply = { text: rule.text, source: rule.source, section: rule.navigate?.section };
         setAi((cur) => (cur?.state === 'off' ? cur : { state: 'off', reason: 'the AI service did not respond' }));
       }
     }
-
-    replyPending.current = false;
+    pending.current = false;
     setThinking(false);
-    const moved = reply.section && reply.section !== section;
-    const title = reply.section ? opp.sections.find((x) => x.id === reply.section)!.title : '';
-    setMsgs((m) => [...m, { id: nextId.current++, who: 'guide', source: reply.source, text: moved ? `${reply.text}
-
-You can review “${title}” in Application sections.` : reply.text }]);
-    if (reply.section) {
-      pendingField.current = reply.field;
-      if (moved) { chatNavigation.current = true; go(`/guide/${opp.id}/${reply.section}`); }
-      else if (reply.field) document.getElementById(`pf-${reply.field}`)?.focus();
-    }
+    const replyId = nextId.current++;
+    setFresh(replyId);
+    setMsgs((m) => [...m, { id: replyId, who: 'guide', text: reply.text, source: reply.source, chip: reply.section && reply.section !== 'status' ? { label: CHIP_LABEL[reply.section], section: reply.section } : undefined }]);
+    inputRef.current?.focus();
   };
 
-  const onFieldFocus = (key: string) => {
-    setActiveField(key);
-    const f = opp.fields.find((x) => x.key === key)!;
-    setMsgs((m) => (m.at(-1)?.fieldKey === key ? m : [...m, { id: nextId.current++, who: 'guide', text: `${f.label}: ${f.help}`, source: 'Configured field help for this scheme.', fieldKey: key }]));
+  /** Voice input with the browser's speech recognition; Chrome may send the audio to its speech service. */
+  const toggleMic = () => {
+    const SR = (window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec }).SpeechRecognition
+      ?? (window as unknown as { webkitSpeechRecognition?: new () => SpeechRec }).webkitSpeechRecognition;
+    if (!SR) { setMicNote(t('Voice input is not available in this browser. You can type your question.')); return; }
+    if (recRef.current) { recRef.current.stop(); return; }
+    const base = q.trim();
+    const rec = new SR();
+    rec.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
+    rec.continuous = true;
+    rec.interimResults = true;
+    let finalText = '';
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += `${r[0].transcript} `; else interim += r[0].transcript;
+      }
+      setQ([base, `${finalText}${interim}`.trim()].filter(Boolean).join(' '));
+    };
+    rec.onerror = (e) => setMicNote(e.error === 'not-allowed' ? t('Microphone is blocked. Allow it in the browser address bar, or type your question.') : e.error === 'no-speech' ? t('No speech heard. Try again.') : t('Voice input stopped. You can type your question.'));
+    rec.onend = () => { recRef.current = null; setListening(false); };
+    recRef.current = rec;
+    setMicNote('');
+    setListening(true);
+    try { rec.start(); } catch { recRef.current = null; setListening(false); }
+  };
+
+  const startSheet = () => {
+    if (pending.current) return;
+    setMsgs((m) => [
+      ...m.map((x) => (x.form ? { ...x, form: false } : x)),
+      { id: nextId.current++, who: 'you', text: t('I don’t know which scholarship I qualify for.') },
+      { id: nextId.current++, who: 'guide', text: t('Fill this short sheet and I will shortlist the schemes that may fit you. Nothing personal is needed.'), form: true },
+    ]);
+  };
+
+  sheetRef.current = startSheet;
+
+  const submitSheet = async (profile: Profile) => {
+    if (pending.current) return;
+    pending.current = true;
+    const { matches, notes } = matchSchemes(profile);
+    const summary = summaryText(profile, t);
+    setMsgs((m) => [...m.map((x) => (x.form ? { ...x, form: false, text: t('Sheet submitted.') } : x)), { id: nextId.current++, who: 'you', text: summary }]);
+    setThinking(true);
+    const titles = matches.map((x) => findOpportunity(x.id)?.title ?? x.id);
+    const ai = await explainShortlist(summarizeProfile(profile), titles, aiContext);
+    const intro = ai ?? (matches.length ? t('Based on the answers, {n} scheme(s) may fit. Central and state schemes are listed separately.', { n: matches.length }) : t('I could not shortlist a scheme from these answers.'));
+    pending.current = false;
+    setThinking(false);
+    const replyId = nextId.current++;
+    setFresh(replyId);
+    setMsgs((m) => [...m, { id: replyId, who: 'guide', text: intro, matches, matchNotes: notes, source: ai ? t('AI explanation of a checklist shortlist built from the official scheme facts in this catalogue.') : t('Checklist shortlist built from the official scheme facts in this catalogue.') }]);
+  };
+
+  const pickFromHistory = (c: Chat) => {
+    if (c.oppId === opp.id) return loadChat(c);
+    requestOpenChat(c.id);
+    setHistoryOpen(false);
+    go(`/guide/${c.oppId}/overview`);
   };
 
   return (
-    <div className="ws chat-first-workspace" data-mobile-panel={mobilePanel}>
-      <header className="workspace-heading">
-        <a className="back" href={`#/opportunity/${opp.id}`}><BackIcon width={16} height={16} /> Back to scholarship</a>
-        <div className="workspace-title"><div><p className="workspace-eyebrow">Your selected scholarship</p><h1>{opp.title}</h1></div><span className="tag">Demo</span></div>
-      </header>
-      <div className="workspace-switch" role="group" aria-label="Workspace view"><button type="button" aria-pressed={mobilePanel === 'chat'} onClick={() => setMobilePanel('chat')}><SparkleIcon width={16} height={16} /> Chat with guide</button><button type="button" aria-pressed={mobilePanel === 'application'} onClick={() => setMobilePanel('application')}>Application sections</button></div>
-      <div className="ws-main">
-        <div className="prov">
-          <div className="prov-label">Practice only — nothing is sent to a provider</div>
-          <div className="prov-bar">
-            <strong>Application workspace</strong>
-            <span>{sec.title}</span>
-          </div>
-          <nav className="crumbs pad" aria-label="Breadcrumb">
-            <a href="#/">Opportunities</a> / <a href={`#/opportunity/${opp.id}`}>{opp.title}</a> / <span>{sec.title}</span>
-          </nav>
-          <div className="prov-body">
-            <nav className="prov-nav" aria-label="Provider sections">
-              {opp.sections.map((s) => (
-                <a key={s.id} href={`#/guide/${opp.id}/${s.id}`} aria-current={s.id === section ? 'page' : undefined}>{s.title}</a>
-              ))}
-            </nav>
-            <section className="prov-content" aria-labelledby="prov-h">
-              <h2 id="prov-h" ref={headRef} tabIndex={-1}>{sec.title}</h2>
-              {section !== 'documents' && section !== 'form' && section !== 'status' && sec.body.map((p, i) => <p key={i}>{p}</p>)}
-              {section === 'overview' && <div className="workspace-next"><p className="workspace-eyebrow">Start with the essentials</p><a href={`#/guide/${opp.id}/eligibility`}><span><strong>Understand the requirements</strong><small>Review who this demo is designed for</small></span><ArrowIcon /></a><a href={`#/guide/${opp.id}/documents`}><span><strong>Prepare your documents</strong><small>{opp.documents.length} document types in this walkthrough</small></span><ArrowIcon /></a><a href={`#/guide/${opp.id}/form`}><span><strong>Practise the application</strong><small>Use fictional details; drafts save in this browser</small></span><ArrowIcon /></a></div>}
-              {section === 'documents' && (<>{sec.body.map((p, i) => <p key={i} className={i === 0 ? '' : 'indent'}>{p}</p>)}<DocPanel opp={opp} /></>)}
-              {section === 'form' && (<><p>{sec.body[0]}</p><FormPanel opp={opp} onFieldFocus={onFieldFocus} /></>)}
-              {section === 'status' && (<><p>{sec.body[0]}</p><StatusPanel opp={opp} /></>)}
-            </section>
-          </div>
+    <motion.div className="gp" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+      <div className="gp-glow" aria-hidden="true" />
+      <div className="gp-bar">
+        <div className="gp-actions">
+          <a className="gp-btn" href="#/"><HomeIcon /> {t('Home')}</a>
+          <button type="button" className="gp-btn gp-btn-recent" onClick={() => setHistoryOpen(true)}>
+            <span aria-hidden="true">↺</span> {t('Recent chats')}{chats.length > 0 && <span className="gp-count" aria-label={t('{n} saved', { n: chats.length })}>{chats.length}</span>}
+          </button>
+        </div>
+        <h2 className="gp-brand"><SaarthiMark size={26} /> Saarthi AI</h2>
+        <div className="gp-actions">
+          <LanguageSwitch />
+          {fromScheme && <a className="gp-back" href={`#/opportunity/${opp.id}`}><BackIcon width={16} height={16} /> {t('Scholarship details')}</a>}
+          <button type="button" className="gp-btn" onClick={newChat} disabled={!started}><span aria-hidden="true">＋</span> {t('New chat')}</button>
         </div>
       </div>
-      <Assistant opp={opp} msgs={msgs} onAsk={ask} thinking={thinking} sectionTitle={sec.title} onOpenApplication={() => setMobilePanel('application')} ai={ai} />
+      <div className={`gp-main ${started ? 'is-started' : ''}`} id="guide">
+        <AnimatePresence initial={false} mode="wait">
+          {!started ? (
+            <motion.section key="welcome" className="gp-welcome" aria-labelledby="gp-h" initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.5, ease }}>
+              <div className="gp-orb" aria-hidden="true">
+                {!reduce && <motion.span className="gp-ring" animate={{ scale: [1, 1.5], opacity: [0.5, 0] }} transition={{ duration: 2.6, repeat: Infinity, ease: 'easeOut' }} />}
+                <motion.span className="gp-orb-core" animate={reduce ? undefined : { y: [0, -6, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}><SaarthiMark size={72} /></motion.span>
+              </div>
+              <h1 id="gp-h">{t('What would you like help with?')}</h1>
+              <p>{t('Ask about eligibility, documents, benefits or how to apply.')}</p>
+            </motion.section>
+          ) : (
+            <motion.section key="thread" className="gp-thread" aria-label={t('Conversation')} initial={false}>
+              <ol className="gp-list" role="log" aria-live="polite" aria-relevant="additions">
+                {msgs.map((m) => <Bubble key={m.id} m={m} latest={m.id === fresh} oppId={opp.id} onProfile={(p) => void submitSheet(p)} />)}
+              </ol>
+              {thinking && (
+                <div className="gp-typing" role="status"><span className="gp-avatar is-busy" aria-hidden="true"><SaarthiMark size={30} /></span><span className="gp-dots" aria-hidden="true"><i /><i /><i /></span><span className="gp-think" aria-hidden="true">{t('Thinking…')}</span><span className="sr-only">{t('The guide is thinking')}</span></div>
+              )}
+              <div ref={endRef} />
+            </motion.section>
+          )}
+        </AnimatePresence>
 
-    </div>
+        <div className="gp-dock">
+          <form className="gp-composer" onSubmit={(e) => { e.preventDefault(); void ask(q); }} noValidate>
+            <textarea
+              ref={inputRef}
+              id="gp-ask"
+              aria-label={t('Ask about {title}', { title: opp.title })}
+              rows={2}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={t('Type your question…')}
+              autoComplete="off"
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void ask(q); } }}
+            />
+            {files.length > 0 && (
+              <ul className="gp-files" aria-label={t('Attached files')}>
+                {files.map((f, i) => (
+                  <li key={`${f.name}${i}`}><span>📎 {f.name}</span><button type="button" onClick={() => setFiles(files.filter((_, j) => j !== i))} aria-label={`${t('Remove')} ${f.name}`}>×</button></li>
+                ))}
+              </ul>
+            )}
+            {fileNote && <p className="gp-file-note" role="alert">{fileNote}</p>}
+            {micNote && <p className="gp-file-note" role="status">{micNote}</p>}
+            <div className="gp-composer-row">
+              <input ref={fileRef} type="file" hidden multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(e) => addFiles(e.target.files)} />
+              <button type="button" className="gp-plus" onClick={() => fileRef.current?.click()} aria-label={t('Attach documents or images')} title={t('Attach a PDF, JPG or PNG (kept on this device)')}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              </button>
+              <button type="button" className={`gp-plus gp-mic ${listening ? 'is-on' : ''}`} onClick={toggleMic} aria-pressed={listening} aria-label={listening ? t('Stop listening') : t('Speak your question')} title={listening ? t('Stop listening') : t('Speak your question')}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" /></svg>
+              </button>
+              <motion.button type="submit" className="gp-send" disabled={(!q.trim() && files.length === 0) || thinking} whileTap={{ scale: 0.95 }} aria-label={t('Send message')}><ArrowIcon width={18} height={18} /> {t('Send')}</motion.button>
+            </div>
+          </form>
+
+          <div className="gp-finds">
+            <button type="button" className="gp-find" onClick={startSheet} disabled={thinking}>
+              <span className="gp-find-ic" aria-hidden="true"><SaarthiMark size={34} /></span>
+              <span><strong>{t('Don’t know which scholarship you qualify for?')}</strong><small>{t('Fill a 1-minute sheet and get a shortlist with official links')}</small></span>
+              <ArrowIcon width={16} height={16} />
+            </button>
+          </div>
+
+          {!started && (
+            <motion.div className="gp-prompts" role="group" aria-label={t('Suggested questions')} initial="hide" animate="show" variants={{ show: { transition: { staggerChildren: 0.07, delayChildren: 0.25 } } }}>
+              {promptsFor(opp).map((p) => (
+                <motion.button key={p} type="button" variants={{ hide: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }} whileHover={reduce ? undefined : { y: -2 }} whileTap={{ scale: 0.97 }} onClick={() => void ask(t(p), p)}>{t(p)}</motion.button>
+              ))}
+            </motion.div>
+          )}
+        </div>
+      </div>
+
+      <History open={historyOpen} onClose={() => setHistoryOpen(false)} chats={chats} currentId={chatId} onPick={pickFromHistory} />
+    </motion.div>
   );
 }

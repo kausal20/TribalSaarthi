@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Saarthi on WhatsApp and SMS</title>
+<meta name="viewport" content="width=1920">
+<style>
+  :root { --ink:#10241c; --t2:#566a60; --teal:#0f8b78; --teal-d:#0b6e5f; --mint:#e4f5ef; --amber:#f4b740; --bg:#fafaf7; --line:#dfe6e1; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1920px; height: 1080px; background: var(--bg); color: var(--ink); font-family: 'Segoe UI', 'Noto Sans Devanagari', system-ui, sans-serif; }
+  .slide { position: relative; width: 1920px; height: 1080px; padding: 44px 80px 36px; display: grid; grid-template-rows: auto 1fr auto; gap: 24px; overflow: hidden; background: radial-gradient(900px 500px at 88% 4%, #e7f6f0 0%, transparent 70%), var(--bg); }
+  .eyebrow { font-size: 22px; letter-spacing: .14em; font-weight: 700; color: var(--teal-d); text-transform: uppercase; }
+  h1 { margin: 8px 0 0; font-size: 52px; line-height: 1.1; letter-spacing: -.02em; max-width: 1500px; }
+  h1 em { font-style: normal; color: var(--teal-d); }
+  .lede { margin: 10px 0 0; font-size: 25px; color: var(--t2); max-width: 1400px; line-height: 1.4; }
+  .body { display: grid; grid-template-columns: 520px 1fr; gap: 52px; align-items: start; min-height: 0; }
+
+  .phones { display: grid; gap: 16px; }
+  .phone { border-radius: 36px; background: #fff; border: 1px solid var(--line); box-shadow: 0 30px 60px -34px rgba(16,36,28,.45); overflow: hidden; }
+  .phone-bar { display: flex; align-items: center; gap: 12px; padding: 10px 20px; font-weight: 700; font-size: 22px; color: #fff; }
+  .phone-bar small { font-weight: 500; font-size: 18px; opacity: .85; display: block; }
+  .wa .phone-bar { background: #0b6e5f; }
+  .sms .phone-bar { background: #2f3f4a; }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: #fff; color: var(--teal-d); display: grid; place-items: center; font-weight: 800; }
+  .chat { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 8px; background: #efeae2; font-size: 20px; line-height: 1.32; }
+  .sms .chat { background: #f1f3f5; font-size: 19px; }
+  .b { max-width: 90%; padding: 9px 14px; border-radius: 14px; box-shadow: 0 1px 1px rgba(0,0,0,.08); }
+  .b.in { background: #fff; border-top-left-radius: 4px; align-self: flex-start; }
+  .b.out { background: #d9fdd3; align-self: flex-end; border-top-right-radius: 4px; }
+  .sms .b.out { background: #d6e6f5; }
+  .opt { color: var(--teal-d); font-weight: 600; }
+
+  .col { display: grid; gap: 16px; align-content: start; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .step { background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 16px 20px; }
+  .step .n { width: 36px; height: 36px; border-radius: 50%; background: var(--teal); color: #fff; display: grid; place-items: center; font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .step h3 { margin: 0 0 4px; font-size: 25px; }
+  .step p { margin: 0; font-size: 20px; color: var(--t2); line-height: 1.35; }
+
+  .arch { background: var(--mint); border: 1px solid #bfe5d9; border-radius: 24px; padding: 16px 22px; display: grid; grid-template-columns: 1fr 50px 1.3fr 50px 1fr; align-items: center; gap: 12px; }
+  .node { background: #fff; border: 1px solid #cfe8df; border-radius: 14px; padding: 10px 12px; text-align: center; font-size: 21px; font-weight: 600; }
+  .node small { display: block; font-weight: 400; color: var(--t2); font-size: 17px; margin-top: 2px; }
+  .arrow { text-align: center; font-size: 34px; color: var(--teal-d); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 16px 22px; }
+  .card h3 { margin: 0 0 6px; font-size: 24px; }
+  .card ul { margin: 0; padding-left: 22px; font-size: 20px; line-height: 1.42; color: #24382f; }
+  .card.warn { background: #fff8e8; border-color: #efd9a0; }
+  .tag { display: inline-block; font-size: 18px; font-weight: 700; letter-spacing: .08em; background: var(--amber); color: #3d2a00; padding: 4px 12px; border-radius: 999px; margin-left: 10px; vertical-align: middle; }
+  .foot { display: flex; justify-content: space-between; align-items: center; font-size: 19px; color: var(--t2); border-top: 1px solid var(--line); padding-top: 12px; }
+  .foot b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="slide">
+  <header>
+    <div class="eyebrow">What comes next · low-bandwidth access</div>
+    <h1>Saarthi on <em>WhatsApp and SMS</em>, for weak internet</h1>
+    <p class="lede">The same scholarship guide as a chat, in Hindi and Marathi. No app, no website to load. Concept only: not built yet.</p>
+  </header>
+
+  <div class="body">
+    <div class="phones" aria-label="Example conversations (mock-up)">
+      <div class="phone wa">
+        <div class="phone-bar"><span class="avatar">S</span><span>Saarthi<small>WhatsApp · example</small></span></div>
+        <div class="chat">
+          <div class="b out">छात्रवृत्ति</div>
+          <div class="b in">नमस्ते! आप अभी क्या पढ़ रहे हैं?<br><span class="opt">1</span> कक्षा 9–10 &nbsp;<span class="opt">2</span> कक्षा 11–12 &nbsp;<span class="opt">3</span> स्नातक &nbsp;<span class="opt">4</span> ITI</div>
+          <div class="b out">2</div>
+          <div class="b in">परिवार की सालाना आय?<br><span class="opt">1</span> ₹2.5 लाख तक &nbsp;<span class="opt">2</span> इससे ज़्यादा</div>
+          <div class="b out">1</div>
+          <div class="b in">2 योजनाएँ ठीक बैठ सकती हैं। आधिकारिक लिंक भेजे जा रहे हैं।<br>दस्तावेज़ों की सूची के लिए <span class="opt">D</span> भेजें।</div>
+        </div>
+      </div>
+      <div class="phone sms">
+        <div class="phone-bar"><span class="avatar" style="color:#2f3f4a">S</span><span>SMS<small>basic phone · example</small></span></div>
+        <div class="chat">
+          <div class="b out">DOCS POSTMATRIC</div>
+          <div class="b in">Post-matric ST: income cert, caste cert, marksheet, bank passbook, photo. Confirm the list on the official portal.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="steps">
+        <div class="step"><div class="n">1</div><h3>Ask</h3><p>The student sends a word or a number. Choices are numbered.</p></div>
+        <div class="step"><div class="n">2</div><h3>Shortlist</h3><p>A few plain questions, as on the website, then a short list with official links.</p></div>
+        <div class="step"><div class="n">3</div><h3>Prepare</h3><p>Document checklist and rejection-risk summary as text. Teachers can use it too.</p></div>
+      </div>
+
+      <div class="arch" aria-label="How it connects">
+        <div class="node">WhatsApp / SMS<small>student's phone</small></div>
+        <div class="arrow">→</div>
+        <div class="node">Saarthi service<small>same matcher, same official facts, same safety rules</small></div>
+        <div class="arrow">→</div>
+        <div class="node">Official portals<small>the student applies there</small></div>
+      </div>
+
+      <div class="cols">
+        <div class="card">
+          <h3>Why it fits</h3>
+          <ul>
+            <li>Text is a few hundred bytes, so it works on weak networks</li>
+            <li>No smartphone needed for the SMS version</li>
+            <li>Reuses what is already built: matcher, checklist, Hindi and Marathi</li>
+            <li>Tribal languages next, using Bhashini or a similar language service</li>
+          </ul>
+        </div>
+        <div class="card warn">
+          <h3>What it needs first <span class="tag">NOT BUILT</span></h3>
+          <ul>
+            <li>WhatsApp Business account and approved message templates</li>
+            <li>An SMS gateway, with sender and template registration as Indian rules require</li>
+            <li>The same safety rule: never ask for Aadhaar, OTP or passwords in chat</li>
+            <li>A pilot with a school or NGO before any claim about reach</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <span><b>TribalSaarthi</b> · independent guide, not an official government portal</span>
+    <span>The conversations above are mock-ups written for this slide</span>
+  </footer>
+</div>
+</body>
+</html>

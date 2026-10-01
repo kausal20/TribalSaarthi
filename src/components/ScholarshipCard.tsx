@@ -2,9 +2,10 @@ import { motion } from 'framer-motion';
 import type { Opportunity } from '../catalogue/types';
 import { LEVEL_LABEL } from '../catalogue/filters';
 import { ArrowIcon, SparkleIcon } from './icons';
+import { useT } from '../i18n/i18n';
 
-/** Primary CTA: sparkle spins, arrow nudges on hover/focus. */
-export function AIGuideButton({ href, label = 'Try guided demo', full }: { href: string; label?: string; full?: boolean }) {
+/** Primary AI CTA: sparkle spins, arrow nudges on hover/focus. */
+export function AIGuideButton({ href, label = 'Open Saarthi AI', full }: { href: string; label?: string; full?: boolean }) {
   return (
     <motion.a href={href} className={`btn-ai ${full ? 'btn-ai-full' : ''}`} initial="rest" whileHover="hover" whileFocus="hover" whileTap={{ scale: 0.98 }}>
       <motion.span variants={{ rest: { rotate: 0, scale: 1 }, hover: { rotate: 90, scale: 1.2 } }} transition={{ type: 'spring', stiffness: 300, damping: 14 }} className="btn-ai-ic">
@@ -18,35 +19,48 @@ export function AIGuideButton({ href, label = 'Try guided demo', full }: { href:
   );
 }
 
+/** The official site a scheme is applied on, from its own apply link (logos are the sites' own, used only to show the source). */
+export function providerOf(o: Opportunity): { id: string; name: string; logo: string } | null {
+  const url = o.official?.applyUrl ?? (o.official ? o.verifiedSourceUrl : '');
+  let host = '';
+  try { host = new URL(url).host; } catch { /* practice example: no official site */ }
+  if (host.endsWith('scholarships.gov.in')) return { id: 'nsp', name: 'National Scholarship Portal', logo: '/logos/nsp.svg' };
+  if (host.endsWith('mahadbt.maharashtra.gov.in')) return { id: 'mahadbt', name: 'MahaDBT', logo: '/logos/mahadbt.png' };
+  if (host.endsWith('tribal.gov.in') || host.endsWith('tribal.nic.in')) return { id: 'mota', name: 'Ministry of Tribal Affairs', logo: '/logos/tribal-affairs.jpg' };
+  return null;
+}
+
+/** Compact card: what it is, who it is for, and one clear next step. Details live on the scheme page. */
 export function ScholarshipCard({ o, index = 0 }: { o: Opportunity; index?: number }) {
+  const t = useT();
   const open = o.status === 'Open in demo';
+  const provider = providerOf(o);
   return (
     <motion.article
-      className="s-card"
+      className={`s-card ${provider ? `prov-${provider.id}` : ''}`}
+      whileHover={{ y: -4 }}
       layout
-      initial={{ opacity: 0, y: 14 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      transition={{ duration: 0.35, delay: Math.min(index * 0.05, 0.25) }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.2) }}
     >
-      <div className="s-top">
-        <div className="s-identity"><span className="s-category">{o.category}<small>{o.location === 'Overseas' ? 'Study abroad' : 'For eligible students'}</small></span></div>
-        {o.official
-          ? <span className="tag tag-official" title={`Facts from ${o.official.sourceTitle}, checked ${o.official.checkedOn}`}>Official scheme</span>
-          : <span className="tag tag-demo" title="Practice example with fictional details">Practice example</span>}
-      </div>
+      {!o.official && <div className="s-top"><span className="tag tag-demo" title={t('Practice example with fictional details')}>{t('Practice')}</span></div>}
+      {provider && (
+        <div className="s-prov">
+          <span className="s-logo"><img src={provider.logo} alt="" loading="lazy" width={28} height={28} /></span>
+          <span><small>{t('Apply on')}</small><strong>{provider.name}</strong></span>
+        </div>
+      )}
       <h3><a href={`#/opportunity/${o.id}`}>{o.title}</a></h3>
       <p className="s-line">{o.tagline}</p>
-      <dl className="s-meta">
-        <div><dt>Level</dt><dd>{LEVEL_LABEL[o.level]}</dd></div>
-        <div><dt>Location</dt><dd>{o.location}</dd></div>
-        <div><dt>Deadline</dt><dd>{o.deadline.set ? o.deadline.text.replace(' (illustrative)', '') : 'See official notice'}{o.deadline.set && <em> illustrative</em>}</dd></div>
-      </dl>
-      <p className="s-elig">{o.official ? `${o.official.benefits[0]}` : 'Eligibility: verify on provider portal'}</p>
-      <div className="s-readiness" aria-label="Demo readiness guide"><div className="s-readiness-head"><span>Ready to explore</span><strong>{open ? '2 of 4 steps' : '1 of 4 steps'}</strong></div><div className="s-readiness-track"><span style={{ width: open ? '50%' : '25%' }} /></div></div>
+      <ul className="s-chips" aria-label={t('Level and location')}>
+        <li>{t(LEVEL_LABEL[o.level])}</li>
+        <li>{o.location === 'Overseas' ? t('Study abroad') : t('India')}</li>
+      </ul>
       <div className="s-actions">
-        <a className="btn-solid" href={`#/opportunity/${o.id}`}>View scholarship <ArrowIcon width={15} height={15} /></a>
-        {open ? <a className="btn-quiet" href={`#/guide/${o.id}/overview`}>{o.official ? 'Ask the guide' : 'Try guided demo'}</a> : <span className="tag">Guide coming soon</span>}
+        <a className="btn-solid" href={`#/opportunity/${o.id}`}>{t('View details')} <ArrowIcon width={15} height={15} /></a>
+        {open && <a className="btn-quiet" href={`#/guide/${o.id}/overview`}>{o.official ? t('Ask the guide') : t('Try demo')}</a>}
       </div>
     </motion.article>
   );

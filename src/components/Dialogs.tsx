@@ -1,8 +1,10 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { useT } from '../i18n/i18n';
 
 /** Native <dialog>: focus trap, Esc to close, and focus return are handled by the browser. */
-export function Dialog({ open, onClose, title, children, side }: { open: boolean; onClose: () => void; title: string; children: ReactNode; side?: boolean }) {
+export function Dialog({ open, onClose, title, children, side, left }: { open: boolean; onClose: () => void; title: string; children: ReactNode; side?: boolean; left?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const t = useT();
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
@@ -12,7 +14,7 @@ export function Dialog({ open, onClose, title, children, side }: { open: boolean
   return (
     <dialog
       ref={ref}
-      className={`dlg ${side ? 'dlg-side' : ''}`}
+      className={`dlg ${side ? 'dlg-side' : ''} ${left ? 'dlg-left' : ''}`}
       aria-labelledby="dlg-title"
       onClose={onClose}
       onClick={(e) => {
@@ -22,8 +24,8 @@ export function Dialog({ open, onClose, title, children, side }: { open: boolean
       <div className="dlg-body">
         <div className="row between">
           <h2 id="dlg-title">{title}</h2>
-          <button type="button" className="btn-quiet" onClick={onClose} aria-label="Close">
-            ✕ Close
+          <button type="button" className="btn-quiet" onClick={onClose} aria-label={t('Close')}>
+            ✕ {t('Close')}
           </button>
         </div>
         {children}
@@ -33,23 +35,29 @@ export function Dialog({ open, onClose, title, children, side }: { open: boolean
 }
 
 export function AboutSafety({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   return (
-    <Dialog open={open} onClose={onClose} title="About & safety" side>
-      <h3>You stay in control</h3>
+    <Dialog open={open} onClose={onClose} title={t('About & safety')} side>
+      <h3>{t('You stay in control')}</h3>
       <ul>
-        <li>The guide explains pages and fields. You review and click every upload and submit yourself.</li>
-        <li>Never share passwords, OTPs, PINs or ID/bank numbers with the guide. It never needs them.</li>
-        <li>Uploaded files stay in this browser. They are not sent to any server or external AI.</li>
+        <li>{t('The guide explains pages and fields. You review and click every upload and submit yourself.')}</li>
+        <li>{t('Never share passwords, OTPs, PINs or ID/bank numbers with the guide. It never needs them. Messages that look like these are not sent to the AI.')}</li>
+        <li>{t('Documents are checked on your device by default. A file is read by AI only if you choose “Scan with AI” for that file in the browser extension.')}</li>
       </ul>
-      <h3>What this prototype is</h3>
+      <h3>{t('How the AI is used')}</h3>
       <ul>
-        <li>A guided browser prototype. The “provider page” is a local, clearly labelled simulation — not a real government portal and not a live integration.</li>
-        <li>The guide is a deterministic helper that answers only from each scheme’s local demo data. It is not an LLM.</li>
-        <li>Catalogue entries, requirements and dates are demonstration content marked illustrative. Verify on the official provider page.</li>
-        <li>Browser storage is not secure. Use fictional data only.</li>
+        <li>{t('Saarthi AI answers from the official scheme facts in this catalogue. It can make mistakes, so confirm on the official portal.')}</li>
+        <li>{t('Your question, recent chat and language are sent to the AI service.')}</li>
+        <li>{t('Scholarship decisions are made only by the provider, never by TribalSaarthi.')}</li>
       </ul>
-      <h3>Future scope (not built)</h3>
-      <p>Real integration would need official permission, provider APIs, security review, accessibility validation, authenticated accounts and secure storage. Real portals may block embedding or automation, so this prototype does none of it: the official site opens in a new tab and is view-only.</p>
+      <h3>{t('What this prototype is')}</h3>
+      <ul>
+        <li>{t('An independent prototype for SIH 2026. It is not an official government portal.')}</li>
+        <li>{t('Practice examples use fictional data. The school and officer page uses demo numbers only.')}</li>
+        <li>{t('Browser storage is not secure. Do not keep real personal data in practice examples.')}</li>
+      </ul>
+      <h3>{t('What comes next')}</h3>
+      <p>{t('More languages, including tribal languages, using a language service such as Bhashini. A WhatsApp or SMS version for low-bandwidth areas. Official integration would need permission from the portals.')}</p>
     </Dialog>
   );
 }

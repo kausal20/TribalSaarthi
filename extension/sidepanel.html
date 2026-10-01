@@ -8,14 +8,19 @@
   </head>
   <body>
     <header class="head">
-      <div class="badge" aria-hidden="true">✦</div>
+      <button id="panel-back" class="panel-back" type="button" aria-label="Back to conversation" title="Back to conversation" hidden>←</button>
+      <div class="badge" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M22.4 8.7c-1.9-1.8-5.5-2.1-8.4-.6-2.7 1.4-3.6 4.3-1.3 5.9 1.3.9 3.6 1.2 5.5 1.8 2.8.8 2.8 3.1.7 4.5-2.5 1.7-6.3.9-8.1-1.1" stroke="currentColor" stroke-width="3.1" stroke-linecap="round"/><path d="m23.5 6.5.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7.7-1.9Z" fill="#f4b740"/></svg></div>
       <div>
-        <h1>TribalSaarthi guide</h1>
+        <h1>TribalSaarthi <span class="head-label">Guide</span></h1>
         <p id="status" class="status" aria-live="polite">Checking the current page…</p>
       </div>
     </header>
 
-    <nav class="tabs" role="tablist" aria-label="Guide sections">
+    <div class="prefs">
+      <label class="pref-lang"><span class="sr">Language</span><select id="ui-language" aria-label="Language"><option value="en">English</option><option value="hi">हिन्दी</option></select></label>
+    </div>
+
+    <nav class="tabs" role="tablist" aria-label="Guide sections" hidden>
       <button role="tab" id="t-chat" aria-selected="true" aria-controls="p-chat">Guide</button>
       <button role="tab" id="t-form" aria-selected="false" aria-controls="p-form">Check form</button>
       <button role="tab" id="t-docs" aria-selected="false" aria-controls="p-docs">Documents</button>
@@ -23,19 +28,46 @@
 
     <main>
       <section id="p-chat" role="tabpanel" aria-labelledby="t-chat">
+        <div id="welcome" class="welcome">
+          <span class="welcome-label">YOUR PORTAL COMPANION</span>
+          <h2>A clearer path<br />to your application.</h2>
+          <p>Ask about this page, find your next step,<br />or check a form before you continue.</p>
+        </div>
         <div id="log" class="log" role="log" aria-live="polite" aria-label="Conversation"></div>
         <div id="quick" class="quick" role="group" aria-label="Suggested questions"></div>
-        <form id="composer" class="composer">
+        <form id="composer" class="composer" novalidate>
           <label for="ask" class="sr">Ask the guide</label>
-          <input id="ask" autocomplete="off" placeholder="Ask where to go or what a page needs…" />
-          <button type="submit">Send</button>
+          <textarea id="ask" rows="2" maxlength="4000" autocomplete="off" placeholder="What would you like help with?"></textarea>
+          <label for="voice-language" class="sr">Spoken language</label>
+          <select id="voice-language" class="voice-language" aria-label="Spoken language">
+            <option value="hi-IN" selected>हिन्दी</option>
+            <option value="en-IN">English</option>
+          </select>
+          <button type="button" id="voice-input" class="voice-input" aria-label="Speak your message" title="Speak your message"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8"/></svg></button>
+          <div class="tool-controls" aria-label="More guide actions">
+            <div class="tool-menu-wrap">
+              <button class="tool-trigger" id="tool-trigger" type="button" aria-label="Open guide tools" aria-haspopup="true" aria-controls="guide-tool-menu" aria-expanded="false"><span aria-hidden="true">+</span></button>
+              <div id="guide-tool-menu" class="tool-menu" role="group" aria-label="Quick guide actions" hidden>
+                <div class="tool-menu-label">QUICK ACTIONS</div>
+                <button class="tool-option" type="button" data-guide-tool="upload"><span class="tool-option-icon" aria-hidden="true">+</span><span><strong>Upload a document</strong><small>Scan it and place it in the right field</small></span></button>
+                <button class="tool-option" type="button" data-guide-tool="check-form"><span class="tool-option-icon" aria-hidden="true">✓</span><span><strong>Check this page</strong><small>Find missing fields and common issues</small></span></button>
+                <button class="tool-option" type="button" data-guide-tool="documents"><span class="tool-option-icon" aria-hidden="true">↗</span><span><strong>Review documents</strong><small>Check a file on this device</small></span></button>
+              </div>
+            </div>
+          </div>
+          <span class="composer-hint"><span class="hint-long">Upload &amp; tools</span><span class="hint-short">Tools</span></span>
+          <button type="submit" id="send" aria-label="Send message" title="Send message">↑</button>
         </form>
+        <input id="chat-pick" type="file" accept=".pdf,.png,.jpg,.jpeg" class="sr" tabindex="-1" aria-hidden="true" />
+        <p id="voice-status" class="voice-status" role="status" aria-live="polite" hidden></p>
+        <p class="composer-note">You stay in control. Review before you submit.</p>
       </section>
 
       <section id="p-form" role="tabpanel" aria-labelledby="t-form" hidden>
         <div class="tool-intro"><span class="tool-kicker">Before you submit</span><h2>Review your form</h2><p>Find missing details and common formatting mistakes on the page you have open.</p><span class="privacy-note">Checked on this device · Sensitive fields skipped</span></div>
-        <button id="scan" class="primary tool-action">Check this page <span aria-hidden="true">→</span></button>
+        <button id="scan" class="primary tool-action">Check this page →</button>
         <div id="scan-summary" class="summary" aria-live="polite"></div>
+        <div id="readiness" class="readiness" role="status" hidden></div>
         <ul id="issues" class="issues"><li class="empty-state"><strong>Ready when you are</strong><p>Open an application form on the portal, enter your details, then check this page.</p></li></ul>
         <p class="tool-limit">Checks cover visible fields only. They do not confirm eligibility, correctness or approval.</p>
         <details class="diag">
@@ -54,19 +86,21 @@
         <ul id="docs" class="docs"></ul>
         <div class="tool-section-head"><h2>Fields on the portal</h2><button id="rescan" class="ghost">Refresh</button></div>
         <ul id="slots" class="slots"></ul>
-        <p class="tool-limit">These are basic file checks, not a scan of the document’s contents or authenticity. Use the portal’s own document and size requirements.</p>
+        <p class="tool-limit">Basic checks run on this device. With your OK, the AI can also tell what kind of document a file is. Neither confirms that a document is genuine or will be accepted.</p>
       </section>
     </main>
 
-    <footer class="foot">Prototype. Explains and checks; you enter details, upload and submit yourself. Never share passwords or OTPs.<br /><span id="ai-status" class="ai-status" role="status">Checking AI guide…</span></footer>
+    <footer class="foot"><span id="ai-status" class="ai-status" role="status">Connecting to guide…</span></footer>
 
     <dialog id="consent" aria-labelledby="c-title">
       <form method="dialog">
         <h2 id="c-title">Check this document?</h2>
         <p id="c-file" class="mono"></p>
         <p>Choose how to check it. You will be asked again for every document.</p>
-        <button value="local" class="primary" id="c-local">Check on this device (recommended)</button>
-        <button value="server" id="c-server" disabled>Send to server AI — not connected yet</button>
+        <button value="scan" class="primary" id="c-scan">Scan with AI and find the right field</button>
+        <p class="note">Sends this one file to the TribalSaarthi AI service to see what kind of document it is and whether it is readable. It is not stored, and the AI is told not to read out names or numbers.</p>
+        <button value="local" id="c-local">Check on this device only</button>
+        <p class="note">Checks file type, size and image quality without sending the file anywhere. Choose this for an Aadhaar card if you prefer not to share it.</p>
         <button value="cancel" class="ghost">Cancel</button>
       </form>
     </dialog>
@@ -81,6 +115,27 @@
       </form>
     </dialog>
 
+    <dialog id="upload-confirm" aria-labelledby="upload-title">
+      <form method="dialog" novalidate>
+        <h2 id="upload-title">Upload to the portal?</h2>
+        <p id="upload-detail"></p>
+        <p class="note">This sends the selected document using the portal’s own upload control. Check the portal for success or errors. It does not submit your application.</p>
+        <button value="no" class="ghost" autofocus>Cancel</button>
+        <button value="yes" class="primary">Upload document</button>
+      </form>
+    </dialog>
+
+    <dialog id="voice-consent" aria-labelledby="voice-title">
+      <form method="dialog">
+        <h2 id="voice-title">Use voice input?</h2>
+        <p>When you start the microphone, Chrome may send audio to its speech service to turn it into text. The transcript stays in this box until you choose Send; sending shares that text with the TribalSaarthi AI guide.</p>
+        <p class="note">The microphone is off until you choose Start listening. You can stop at any time.</p>
+        <button value="start" class="primary">Start listening</button>
+        <button value="cancel" class="ghost">Cancel</button>
+      </form>
+    </dialog>
+
+    <script defer src="motion.bundle.js"></script>
     <script type="module" src="sidepanel.js"></script>
   </body>
 </html>

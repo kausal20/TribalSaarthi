@@ -6,3 +6,7 @@ dist/
 .env
 .env.*
 *.log
+tmp/
+output/
+extension/test/
+premium-audit.json

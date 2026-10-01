@@ -4,7 +4,7 @@
 <script>
   window.__calls = [];
   const originalFetch = window.fetch.bind(window);
-  window.fetch = (url, options) => String(url).includes('/api/health') ? Promise.resolve(new Response(JSON.stringify({keyConfigured:false}))) : originalFetch(url, options);
+  window.fetch = (url, options) => String(url).includes('/api/health') ? Promise.resolve(new Response(JSON.stringify({keyConfigured:location.search.includes('ai=1'),canAnswer:location.search.includes('ai=1')}))) : originalFetch(url, options);
   const params = new URLSearchParams(location.search);
   const fields = [
     { id: 'ts1', label: 'Full name', name: 'fullName', type: 'text', required: true, filled: false, sensitive: false, value: '' },
@@ -17,11 +17,22 @@
   const store = H ? { tsHandoff: { id: H, ts: Date.now() } } : {};
   window.__store = store;
   window.chrome = {
-    runtime: { sendMessage: async () => ({ ok: true }) },
-    storage: { local: { get: async (k) => ({ [k]: store[k] }), remove: async (k) => { delete store[k]; } } },
+    runtime: { sendMessage: async () => ({ ok: true }), onMessage: { addListener() {} } },
+    storage: { local: { get: async (k) => ({ [k]: store[k] }), remove: async (k) => { delete store[k]; } }, onChanged: { addListener() {} } },
     tabs: {
       query: async () => [{ id: 1, url: 'https://mahadbt.maharashtra.gov.in/Home/LandingPage' }],
-      sendMessage: async (id, m) => { window.__calls.push(m); return m.type === 'page-info' ? (params.get('scenario') === 'error' ? { ok: false } : { ok: true, info, fields: params.get('scenario') === 'empty' ? [] : fields }) : m.type === 'scan' ? { ok: true, fields } : { ok: true, matched: m.label }; },
+      sendMessage: async (id, m) => {
+        window.__calls.push(m);
+        if (m.type === 'goto' && params.get('scenario') === 'navigation') {
+          info.documentId = String(Number(info.documentId || 0) + 1);
+          info.path = m.label === 'New Registration' ? '/Students' : '/Documents';
+          info.links = m.label === 'New Registration' ? ['Documents'] : ['Home'];
+          return {ok:true};
+        }
+        if (m.type === 'prepare-upload') return {ok:true, token:'fixture-upload', name:'upload-sample.pdf', host:'mock-portal.local', label:'Upload document'};
+        if (m.type === 'upload-document') return {ok:true, status:'requested'};
+        return m.type === 'page-info' ? (params.get('scenario') === 'error' ? { ok: false } : { ok: true, info, fields: params.get('scenario') === 'empty' ? [] : fields }) : m.type === 'scan' ? { ok: true, fields } : { ok: true, matched: m.label };
+      },
       onActivated: { addListener() {} }, onUpdated: { addListener() {} },
     },
   };

@@ -1,4 +1,6 @@
-import { SECTION_IDS, cataloguePrompt, cleanReply, portalPrompt, sanitizeCatalogue, sanitizeScheme, schemePrompt } from './guide.mjs';
+import { SECTION_IDS, cataloguePrompt, cleanReply, portalPrompt, sanitizeCatalogue, sanitizeContext, sanitizeMessages, sanitizePage, sanitizeScheme, schemePrompt } from './guide.mjs';
+import { companionPrompt, companionTools, sanitizeCompanion, validateCompanionCall } from './companion.mjs';
+import { MAX_SCAN_B64, parseScan, sanitizeScanInput, scanPrompt } from './scan.mjs';
 
 const meshModel = process.env.MESH_MODEL || 'google/gemini-3.1-flash-lite';
 const baseUrl = (process.env.MESH_BASE_URL || 'https://api.meshapi.ai/v1').replace(/\/$/, '');
@@ -9,19 +11,20 @@ const tools = [
   { type: 'function', function: { name: 'navigateTo', description: 'Navigate to an exact visible link on the current official MahaDBT page, or to an approved internal TribalSaarthi route. Do not invent destinations.', parameters: { type: 'object', properties: { destination: { type: 'string', description: 'Exact visible link label or approved internal path.' } }, required: ['destination'], additionalProperties: false } } },
   { type: 'function', function: { name: 'scrollToElement', description: 'Scroll to and highlight an approved section in the TribalSaarthi demo.', parameters: { type: 'object', properties: { selector: { type: 'string', enum: [...allowedSelectors] } }, required: ['selector'], additionalProperties: false } } },
   { type: 'function', function: { name: 'checkForm', description: 'Ask the browser extension to scan visible form fields locally. Sensitive values are never sent to the model.', parameters: { type: 'object', properties: {}, additionalProperties: false } } },
-  { type: 'function', function: { name: 'showDocuments', description: 'Open the extension document checklist. Do not upload documents to the model or server.', parameters: { type: 'object', properties: {}, additionalProperties: false } } },
+  { type: 'function', function: { name: 'showDocuments', description: 'Open local document checks and portal file-selection tools when asked to check, upload or attach a document. File selection requires student confirmation in the panel. Never send document bytes to the model or server or claim a completed upload.', parameters: { type: 'object', properties: {}, additionalProperties: false } } },
 ];
 
 const send = (res, code, data) => { res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type', 'access-control-allow-methods': 'POST, OPTIONS' }); res.end(JSON.stringify(data)); };
-const readBody = req => req.body !== undefined ? Promise.resolve(typeof req.body === 'string' ? JSON.parse(req.body) : req.body) : new Promise((resolve, reject) => { let raw = ''; req.on('data', c => { raw += c; if (raw.length > 256_000) reject(new Error('Request too large')); }); req.on('end', () => { try { resolve(JSON.parse(raw || '{}')); } catch { reject(new Error('Invalid JSON')); } }); });
+const readBody = (req, limit = 256_000) => req.body !== undefined ? Promise.resolve(typeof req.body === 'string' ? JSON.parse(req.body) : req.body) : new Promise((resolve, reject) => { let raw = ''; req.on('data', c => { raw += c; if (raw.length > limit) reject(new Error('Request too large')); }); req.on('end', () => { try { resolve(JSON.parse(raw || '{}')); } catch { reject(new Error('Invalid JSON')); } }); });
 const parseArgs = call => { try { return JSON.parse(call.function?.arguments || '{}'); } catch { return {}; } };
 
-function validateAction(call, context) {
+function validateAction(call, context, companion) {
   const name = call.function?.name;
   const args = parseArgs(call);
+  if (companion) return validateCompanionCall(name, args, companion); // practice-form mode has its own, stricter tool set
   if (name === 'navigateTo') {
     const destination = String(args.destination || '').trim();
-    if (allowedPaths.test(destination)) return { type: 'navigateTo', urlPath: destination };
+    if (!context.url && allowedPaths.test(destination)) return { type: 'navigateTo', urlPath: destination };
     const exactLink = (context.links || []).find(link => link === destination && !blockedLink.test(link));
     if (exactLink) return { type: 'goto', label: exactLink };
   }
@@ -34,7 +37,7 @@ function validateAction(call, context) {
 /** Non-secret balance info for diagnostics; null when unavailable. */
 async function meshBalance() {
   try {
-    const r = await fetch(`${baseUrl.replace(/\/v1$/, '')}/v1/balance`, { signal: AbortSignal.timeout(8000), headers: { authorization: `Bearer ${process.env.MESH_API_KEY}` } });
+    const r = await fetch(`${baseUrl.replace(/\/v1$/, '')}/v1/balance`, { signal: AbortSignal.timeout(20000), headers: { authorization: `Bearer ${process.env.MESH_API_KEY}` } });
     return r.ok ? await r.json() : null;
   } catch { return null; }
 }
@@ -49,6 +52,9 @@ function describeActions(actions) {
     }
     if (a.type === 'scan-form') return 'Checking the form on this page.';
     if (a.type === 'scan-uploads') return 'Showing the upload fields on this page.';
+    if (a.action === 'NAVIGATE') return 'Taking you to that part of the form.';
+    if (a.action === 'AUTO_FILL') return a.field === 'name' ? 'Filling in your name.' : 'Filling in your income.';
+    if (a.action === 'MAP_FILE') return `Attaching “${a.fileName}” to the form.`;
     return 'Done.';
   }).join(' ');
 }
@@ -56,31 +62,30 @@ function describeActions(actions) {
 async function answer(input) {
   const apiKey = process.env.MESH_API_KEY;
   if (!apiKey) return { text: 'The guide is not connected yet. Add the Mesh API key to the server environment and restart the assistant server.', actions: [] };
-  const messages = Array.isArray(input.messages) ? input.messages.filter(m => ['user', 'assistant'].includes(m?.role) && typeof m.content === 'string').slice(-16) : [];
+  const messages = sanitizeMessages(input.messages);
   const scheme = sanitizeScheme(input.scheme);
-  const context = input.page && typeof input.page === 'object' ? input.page : {};
-  const pageInfo = {
-    title: String(context.title || '').slice(0, 200),
-    url: String(context.url || '').slice(0, 500),
-    links: Array.isArray(context.links) ? context.links.filter(x => typeof x === 'string' && !blockedLink.test(x)).slice(0, 80).map(x => x.slice(0, 120)) : [],
-  };
+  const pageInfo = sanitizePage(input.page, blockedLink);
   const catalogue = sanitizeCatalogue(input.catalogue);
-  const system = scheme ? schemePrompt(scheme, catalogue) : catalogue ? cataloguePrompt(catalogue) : portalPrompt(pageInfo);
-  const activeTools = scheme
+  const companion = sanitizeCompanion(input.companion);
+  const ctx = sanitizeContext(input.context);
+  const system = companion ? companionPrompt(companion) : scheme ? schemePrompt(scheme, catalogue, ctx) : catalogue ? cataloguePrompt(catalogue, ctx) : portalPrompt(pageInfo, ctx);
+  const activeTools = companion ? companionTools : scheme
     ? [{ type: 'function', function: { name: 'navigateTo', description: 'Open one section of the guided demo for this scheme.', parameters: { type: 'object', properties: { destination: { type: 'string', enum: [...SECTION_IDS.map(sec => `/guide/${scheme.id}/${sec}`), ...(catalogue || []).filter(o => o.id !== scheme.id).map(o => `/opportunity/${o.id}`)] } }, required: ['destination'], additionalProperties: false } } }]
     : catalogue
       ? [{ type: 'function', function: { name: 'navigateTo', description: 'Open a demo scholarship page on the TribalSaarthi website.', parameters: { type: 'object', properties: { destination: { type: 'string', enum: catalogue.flatMap(o => [`/opportunity/${o.id}`, ...(o.guidedDemo ? [`/guide/${o.id}/overview`] : [])]) } }, required: ['destination'], additionalProperties: false } } }]
-      : tools;
+      : tools.filter(tool => tool.function.name !== 'scrollToElement');
   const requestMessages = [{ role: 'system', content: system }, ...messages];
   const actions = [];
 
   // Mesh's OpenAI-compatible tool calls are collected here and validated before they reach the client.
   // Text the model wrote alongside a tool call is kept, so a navigation step never replaces the actual answer.
   const spoken = [];
+  const answerDeadline = AbortSignal.timeout(38000);
   for (let round = 0; round < 3; round++) {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.any([answerDeadline, AbortSignal.timeout(18000)]),
       body: JSON.stringify({ model: meshModel, messages: requestMessages, tools: activeTools, tool_choice: 'auto', max_tokens: 500, temperature: 0.2 }),
     });
     if (!response.ok) {
@@ -110,17 +115,69 @@ async function answer(input) {
     if (message.content) spoken.push(String(message.content));
     requestMessages.push({ role: 'assistant', content: message.content || null, tool_calls: calls });
     for (const call of calls) {
-      const action = validateAction(call, pageInfo);
+      const action = validateAction(call, pageInfo, companion);
       if (action) actions.push(action);
       requestMessages.push({ role: 'tool', tool_call_id: call.id, content: action ? 'Action validated and sent to the browser for execution.' : 'Action refused: destination was not in the allowed page context.' });
+    }
+    // Portal actions must execute and be observed by the client before planning
+    // again. Never tell the model a queued browser action already happened.
+    if (!companion && !scheme && !catalogue && actions.length) {
+      const next = actions[0];
+      return { text: next.type === 'goto' ? `Opening “${next.label}”.` : cleanReply(spoken.join('\n\n')) || describeActions([next]), actions: [next] };
     }
   }
   const text = cleanReply(spoken.join('\n\n'));
   return { text: text || (actions.length ? describeActions(actions) : 'I could not match that to a safe page. Which page or section do you mean?'), actions };
 }
 
+/** One document, one model call. The file is not stored or logged; only the validated classification is returned. */
+async function scanDocument(input) {
+  const apiKey = process.env.MESH_API_KEY;
+  const doc = sanitizeScanInput(input);
+  if (!doc) { const e = new Error('bad file'); e.status = 400; e.publicMessage = 'Send one PDF, JPG or PNG up to about 3 MB.'; throw e; }
+  if (!doc.pages) { const e = new Error('render required'); e.status = 400; e.publicMessage = 'Update and reload the extension: document scans now require locally rendered page images.'; throw e; }
+  if (!apiKey) { const e = new Error('no key'); e.status = 503; e.publicMessage = 'The AI scan is not connected on the server.'; throw e; }
+  // One retry: a cold start or a brief provider hiccup should not reach the student as a failure.
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(18000),
+        body: JSON.stringify({
+          model: meshModel,
+          temperature: 0,
+          max_tokens: 1600,
+          messages: [
+            { role: 'system', content: scanPrompt(doc.fields, doc.requirements, doc.language) },
+            { role: 'user', content: [{ type: 'text', text: `Review all ${doc.pages.length} pages of this document.` }, ...doc.pages.map(p => ({ type: 'image_url', image_url: { url: `data:${p.mime};base64,${p.b64}` } }))] },
+          ],
+        }),
+      });
+      if (!response.ok) throw new Error(`scan upstream ${response.status}`);
+      const data = await response.json();
+      const result = parseScan(data.choices?.[0]?.message?.content, doc.fields, doc.requirements);
+      if (!result) throw new Error('scan reply not understood');
+      return result;
+    } catch (error) {
+      lastError = error;
+      console.error('Document scan attempt failed:', error instanceof Error ? error.message : 'unknown error');
+    }
+  }
+  const e = new Error(lastError?.message || 'scan failed'); e.status = 502; e.publicMessage = 'The AI could not read this file right now.';
+  throw e;
+}
+
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, {});
+  if (req.method === 'POST' && req.url === '/api/scan') {
+    try { return send(res, 200, await scanDocument(await readBody(req, MAX_SCAN_B64 + 20_000))); }
+    catch (error) {
+      console.error('Document scan failed:', error instanceof Error ? error.message : 'unknown error');
+      return send(res, error?.status || 502, { error: error?.publicMessage || 'The AI could not read this file right now.' });
+    }
+  }
   if (req.method === 'GET' && req.url === '/api/health') {
     // Diagnostics only: never includes the key.
     const balance = process.env.MESH_API_KEY ? await meshBalance() : null;

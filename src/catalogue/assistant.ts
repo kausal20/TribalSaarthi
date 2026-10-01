@@ -47,6 +47,17 @@ export function respond(opp: Opportunity, message: string, ctx: AssistantContext
     return { text: `Hello! I can help with the documents, eligibility points and form fields for “${opp.title}”, or check what you have completed. What would you like to know?`, kind: 'answer' };
   }
 
+  // Small talk and "what can you do" are answered like a person would, never with the missing-facts line.
+  if (/\b(your name|you name|who are you|who r you|what are you|what can you|what do you do|what you do|how can you help|can you help|help me|what can u)\b/.test(text) || /\bwhat\b.*\byou\b.*\b(do|hel\w*)\b/.test(text)) {
+    return { text: `I'm Saarthi AI. I help ST students find scholarships and get their documents and forms ready. For “${opp.title}” you can ask me who can apply, which documents you'll need, what you get, or how to apply. Or tap “Don't know which scholarship you qualify for?” and I'll suggest some.`, kind: 'answer' };
+  }
+  if (/^(thanks|thank you|thx|ok|okay|great|nice|good|cool|shukriya|dhanyavad)\b/.test(text) && text.split(' ').length <= 4) {
+    return { text: "You're welcome! Ask me anything else about this scheme whenever you like.", kind: 'answer' };
+  }
+  if (/\b(how are you|how r you|kaise ho)\b/.test(text)) {
+    return { text: "I'm doing well, thanks for asking! What would you like to know about this scholarship?", kind: 'answer' };
+  }
+
   if (SENSITIVE.test(text)) {
     return {
       text: 'Please do not share passwords, OTPs, PINs or ID/bank numbers with me. I never need them, and I cannot log in or submit for you. You stay in control of every submit and upload.',
@@ -113,7 +124,7 @@ export function respond(opp: Opportunity, message: string, ctx: AssistantContext
     }
   }
 
-  return { text: FALLBACK, kind: 'fallback' };
+  return { text: `${FALLBACK} I can help with who can apply, the documents you'll need, what you get, and how to apply. Try one of those?`, kind: 'fallback' };
 }
 
 const NOTE_SOURCE = 'Demo catalogue entry. Illustrative content; verify on the provider portal.';
