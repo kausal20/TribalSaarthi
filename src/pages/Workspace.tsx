@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { findOpportunity } from '../catalogue/data';
 import { respond } from '../catalogue/assistant';
@@ -14,7 +14,8 @@ import { SaarthiMark } from '../components/SaarthiMark';
 import { DocReadiness } from '../components/DocReadiness';
 import { LanguageSwitch } from '../components/LanguageSwitch';
 import { MAX_FILE_BYTES } from '../engine/files';
-import { INCOME_LABEL, STAGE_LABEL, matchSchemes, officialLink, summarizeProfile, translateReason, type Income, type Profile, type Stage } from '../catalogue/matcher';
+import { Select } from '../components/Select';
+import { INCOME_LABEL, STAGE_LABEL, STATES, matchSchemes, officialLink, summarizeProfile, translateReason, type Income, type Profile, type Stage } from '../catalogue/matcher';
 import { Typewriter, ease } from '../components/motionKit';
 import { useLang, useT, type TFn } from '../i18n/i18n';
 import { NotFound } from './Detail';
@@ -54,8 +55,6 @@ const SELECTS: { key: keyof Profile; label: string; options: [string, string][] 
   { key: 'living', label: 'Where do you stay while studying?', options: [['home', 'At home / day scholar'], ['hostel', 'In a hostel']] },
   { key: 'stage', label: 'What are you studying now?', options: (Object.keys(STAGE_LABEL) as Stage[]).map((k) => [k, STAGE_LABEL[k]]) },
   { key: 'studyIn', label: 'Where do you study?', options: [['india', 'In India'], ['abroad', 'Abroad']] },
-  { key: 'state', label: 'Which state do you live in?', options: [['maharashtra', 'Maharashtra'], ['other', 'Another state']] },
-  { key: 'income', label: 'Yearly family income', options: (Object.keys(INCOME_LABEL) as Income[]).map((k) => [k, INCOME_LABEL[k]]) },
 ];
 
 /** One line that says what the student answered, in the chosen language. */
@@ -64,36 +63,32 @@ function summaryText(p: Profile, t: TFn): string {
     t('ST student'),
     t(STAGE_LABEL[p.stage]),
     p.studyIn === 'india' ? t('study in India') : t('study abroad'),
-    p.state === 'maharashtra' ? t('Maharashtra') : t('another state'),
+    t(p.stateName ?? (p.state === 'maharashtra' ? 'Maharashtra' : 'Another state')),
     `${t('family income')}: ${t(INCOME_LABEL[p.income])}`,
     p.living === 'hostel' ? t('stays in a hostel') : t('lives at home'),
   ].join(' · ');
 }
 
+const INCOME_CHOICES = (Object.keys(INCOME_LABEL) as Income[]).filter((k) => k !== 'unsure');
+
 function MatchForm({ onSubmit }: { onSubmit: (p: Profile) => void }) {
   const t = useT();
-  const [p, setP] = useState<Profile>({ living: 'home', stage: 'ug', studyIn: 'india', state: 'maharashtra', income: 'unsure', topInstitute: 'no' });
+  const [p, setP] = useState<Omit<Profile, 'income'>>({ living: 'home', stage: 'ug', studyIn: 'india', state: 'maharashtra', stateName: 'Maharashtra', topInstitute: 'no' });
+  const [income, setIncome] = useState<Income | ''>('');
   const showTop = (p.stage === 'ug' || p.stage === 'pg') && p.studyIn === 'india';
+  const field = (label: string, control: ReactNode) => <div className="gp-field"><span>{label}</span>{control}</div>;
   return (
-    <form className="gp-sheet" onSubmit={(e) => { e.preventDefault(); onSubmit(p); }}>
-      {SELECTS.map((s) => (
-        <label key={s.key}>
-          <span>{t(s.label)}</span>
-          <select value={p[s.key]} onChange={(e) => setP({ ...p, [s.key]: e.target.value } as Profile)}>
-            {s.options.map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
-          </select>
-        </label>
-      ))}
-      {showTop && (
-        <label>
-          <span>{t('Admitted to an IIT, AIIMS, IIM, NIT or similar?')}</span>
-          <select value={p.topInstitute} onChange={(e) => setP({ ...p, topInstitute: e.target.value as Profile['topInstitute'] })}>
-            <option value="no">{t('No')}</option><option value="yes">{t('Yes')}</option>
-          </select>
-        </label>
-      )}
+    <form className="gp-sheet" onSubmit={(e) => { e.preventDefault(); if (income) onSubmit({ ...p, income }); }}>
+      {SELECTS.filter((s) => s.key !== 'state' && s.key !== 'income').map((s) => field(t(s.label),
+        <Select key={s.key} label={t(s.label)} value={String(p[s.key as keyof typeof p])} options={s.options.map(([v, l]) => ({ value: v, label: t(l) }))} onChange={(v) => setP({ ...p, [s.key]: v })} />))}
+      {field(t('Which state do you live in?'),
+        <Select label={t('Which state do you live in?')} value={p.stateName ?? ''} options={STATES.map((n) => ({ value: n, label: t(n) }))} onChange={(v) => setP({ ...p, stateName: v, state: v === 'Maharashtra' ? 'maharashtra' : 'other' })} />)}
+      {field(t('Yearly family income'),
+        <Select label={t('Yearly family income')} value={income} placeholder={t('Choose one')} options={INCOME_CHOICES.map((k) => ({ value: k, label: t(INCOME_LABEL[k]) }))} onChange={(v) => setIncome(v as Income)} />)}
+      {showTop && field(t('Admitted to an IIT, AIIMS, IIM, NIT or similar?'),
+        <Select label={t('Admitted to an IIT, AIIMS, IIM, NIT or similar?')} value={p.topInstitute} options={[{ value: 'no', label: t('No') }, { value: 'yes', label: t('Yes') }]} onChange={(v) => setP({ ...p, topInstitute: v as Profile['topInstitute'] })} />)}
       <p className="gp-sheet-note">{t('Only these answers are used. Do not add your name, Aadhaar or any number.')}</p>
-      <button type="submit" className="gp-send">{t('Find my scholarships')} <ArrowIcon width={16} height={16} /></button>
+      <button type="submit" className="gp-send" disabled={!income}>{t('Find my scholarships')} <ArrowIcon width={16} height={16} /></button>
     </form>
   );
 }

@@ -14,9 +14,20 @@ export interface Profile {
   stage: Stage;
   studyIn: 'india' | 'abroad';
   state: 'maharashtra' | 'other';
+  /** The state the student picked (for display); matching only needs Maharashtra or not. */
+  stateName?: string;
   income: Income;
   topInstitute: 'yes' | 'no';
 }
+
+/** Every state and union territory, so any student can pick theirs. Only Maharashtra schemes are in the catalogue so far. */
+export const STATES = [
+  'Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh',
+  'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir',
+  'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya',
+  'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+  'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+] as const;
 
 export const STAGE_LABEL: Record<Stage, string> = {
   'class9-10': 'Class 9–10', 'class11-12': 'Class 11–12', iti: 'ITI / vocational course', ug: 'Graduation (UG)', pg: 'Post-graduation (PG)', phd: 'PhD / research',

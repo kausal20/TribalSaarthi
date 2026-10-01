@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hi } from './hi';
 import { translate } from './i18n';
-import { INCOME_LABEL, STAGE_LABEL, matchSchemes, translateReason, type Income, type Profile, type Stage } from '../catalogue/matcher';
+import { INCOME_LABEL, STAGE_LABEL, STATES, matchSchemes, translateReason, type Income, type Profile, type Stage } from '../catalogue/matcher';
 import { LEVEL_LABEL } from '../catalogue/filters';
 import { KINDS } from '../../extension/lib/readiness.js';
 import { DASHBOARD_TEXT } from '../pages/dashboardData';
@@ -21,7 +21,7 @@ function literalKeys(): string[] {
 /** Strings that reach t() through a variable; each source is listed here or read from its real data. */
 function dynamicKeys(): string[] {
   const keys = new Set<string>([
-    ...Object.values(STAGE_LABEL), ...Object.values(INCOME_LABEL), ...Object.values(LEVEL_LABEL), ...Object.values(KINDS) as string[], ...DASHBOARD_TEXT,
+    ...STATES, 'Choose one', ...Object.values(STAGE_LABEL), ...Object.values(INCOME_LABEL), ...Object.values(LEVEL_LABEL), ...Object.values(KINDS) as string[], ...DASHBOARD_TEXT,
     // Saarthi AI sheet, suggested questions and shortcut chips
     'Where do you stay while studying?', 'At home / day scholar', 'In a hostel', 'What are you studying now?', 'Where do you study?', 'In India', 'Abroad',
     'Which state do you live in?', 'Maharashtra', 'Another state', 'Yearly family income',
